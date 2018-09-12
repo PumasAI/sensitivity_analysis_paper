@@ -1,52 +1,65 @@
-using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools, Profile, ProfileView
+using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools, Profile, ProfileView, ParameterizedFunctions
 
-function df(du, u, p, t)
-    a,b,c = p
-    x, y = u
-    du[1] = a*x - b*x*y
-    du[2] = -c*y + x*y
-    nothing
+@eval begin
+    df = @ode_def $(gensym()) begin
+      dx = a*x - b*x*y
+      dy = -c*y + x*y
+    end a b c
 end
 
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0];
 
-function diffeq_sen_l2(f, init, tspan, p, alg=Vern6())
-    prob = ODEProblem(f,init,tspan,p)
-    dg(out,u,i) = (out.=1.0.-u)
-    _sol = solve(prob, alg, abstol=1e-5, reltol=1e-7)
-    sol = adjoint_sensitivities(_sol,alg,dg,tspan[end],abstol=1e-5,
-                            reltol=1e-7,iabstol=1e-5,ireltol=1e-7)
-    #extract_local_sensitivities(sol, length(sol))[2]
+function diffeq_sen_l2(df, u0, tspan, p, t, alg=Vern6())
+    prob = ODEProblem(df,u0,tspan,p)
+    sol = solve(prob, alg, abstol=1e-5, reltol=1e-7)
+    dg(out,u,p,t,i) = (out.=1.0.-u)
+    adjoint_sensitivities(sol,alg,dg,t,abstol=1e-5,
+                          reltol=1e-7,iabstol=1e-5,ireltol=1e-7)
 end
 
-function auto_sen_l2(f, init, tspan, p, alg=Vern6(); diffalg=ForwardDiff.gradient)
+function auto_sen_l2(f, init, tspan, p, t, alg=Vern6(); diffalg=ForwardDiff.gradient)
     test_f(p) = begin
         prob = ODEProblem(f,eltype(p).(init),eltype(p).(tspan),p)
-        sol = solve(prob,alg,save_everystep=false,abstol=1e-5,reltol=1e-7)[end]
-        sum(x->(1-x)^2/2, sol)
+        sol = solve(prob,alg,abstol=1e-5,reltol=1e-7,saveat=t)
+        sum(sol.u) do x
+            sum(z->(1-z)^2/2, x)
+        end
     end
     diffalg(test_f, p)
 end
 
-@time auto_sen_l2(df, u0, tspan, p)
-#@time auto_sen_l2(df, u0, tspan, p; diffalg=ReverseDiff.gradient)
-#@time diffeq_sen_l2(df, u0, tspan, p)
-@btime auto_sen_l2($df, $u0, $tspan, $p)
-#@btime auto_sen_l2($df, $u0, $tspan, $p; diffalg=$(ReverseDiff.gradient))
-#@btime diffeq_sen_l2($df, $u0, $tspan, $p)
+#@time auto_sen_l2(df, u0, tspan, p, t; diffalg=ReverseDiff.gradient)
+#@btime auto_sen_l2($df, $u0, $tspan, $p, $t; diffalg=$(ReverseDiff.gradient))
+
+t = 0:0.5:10
+@time auto_sen_l2(df, u0, tspan, p, t)
+@time diffeq_sen_l2(df, u0, tspan, p, t)
+@btime auto_sen_l2($df, $u0, $tspan, $p, $t)
+@btime diffeq_sen_l2($df, $u0, $tspan, $p, $t)
 
 #=============================
-ReverseDiff and adjoint_sensitivities are currently broken
-julia> @btime auto_sen_l2($df, $u0, $tspan, $p)
-  178.416 μs (757 allocations: 52.80 KiB)
+ReverseDiff is currently broken
+julia> @time auto_sen_l2(df, u0, tspan, p, t)
+ 14.558341 seconds (37.78 M allocations: 1.896 GiB, 8.39% gc time)
 3-element Array{Float64,1}:
- 0.6219783212353721
- 0.06800309430057831
- 0.16918198800982667
+  25.50046010429557
+ -77.2548746896757
+  93.53153569559123
 
-julia> @btime auto_sen($df, $u0, $tspan, $p)
-  184.872 μs (754 allocations: 52.71 KiB)
-2×3 Array{Float64,2}:
-  2.16057   0.188568   0.563195
- -6.25674  -0.697975  -1.70902
+julia> @time diffeq_sen_l2(df, u0, tspan, p, t)
+ 13.633570 seconds (40.21 M allocations: 3.180 GiB, 8.28% gc time)
+1×3 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 25.5013  -77.2551  93.5321
+
+julia> @btime auto_sen_l2($df, $u0, $tspan, $p, $t)
+  117.032 μs (652 allocations: 52.70 KiB)
+3-element Array{Float64,1}:
+  25.50046010429557
+ -77.2548746896757
+  93.53153569559123
+
+julia> @btime diffeq_sen_l2($df, $u0, $tspan, $p, $t)
+  4.709 ms (78461 allocations: 1.89 MiB)
+1×3 LinearAlgebra.Adjoint{Float64,Array{Float64,1}}:
+ 25.5013  -77.2551  93.5321
 =============================#

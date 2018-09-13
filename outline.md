@@ -13,10 +13,10 @@ Variable coefficient PDE: medium to large
 Mention parameter estimation in PK models, which leads to section 3.
 
 Examples:
-    1. Multiple dosing on a PK model, standard sensitivity should work
-    2. With parameter-dependent dosages, standard sensitivity won't work
-    3. With parameter-dependent duration, standard sensitivity won't work
-    4. With parameters as dependent variables, standard sensitivity won't work
+1. Multiple dosing on a PK model, standard sensitivity should work
+2. With parameter-dependent dosages, standard sensitivity won't work
+3. With parameter-dependent duration, standard sensitivity won't work
+4. With parameters as dependent variables, standard sensitivity won't work
 
 ## Section 3: Timing for parameter estimation
 Compare autodiff, hand derived diffeq, standard sensitivity analysis, and
@@ -38,10 +38,10 @@ great difficulties to generalize.
 With autodiff, one gets event handling for free, but needs proper care.
 
 Cons:
-    - Difficulty of using cache arrays with autodiff.
+- Difficulty of using cache arrays with autodiff.
 
-    - Long compile time and a lot of codegen, but it might not be a problem in
-      parameter estimation where one needs to run a model many times. However, for
-      project like `PuMaS.jl` compile time can still be significant.
+- Long compile time and a lot of codegen, but it might not be a problem in
+  parameter estimation where one needs to run a model many times. However, for
+  project like `PuMaS.jl` compile time can still be significant.
 
-    - Mention `Capstan.jl` and `Cassette.jl`.
+- Mention `Capstan.jl` and `Cassette.jl`.

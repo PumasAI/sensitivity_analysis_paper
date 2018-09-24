@@ -41,6 +41,60 @@ end
 @btime auto_sen($df, $u0, $tspan, $p)
 @btime diffeq_sen($df, $u0, $tspan, $p)
 
+function com_df(du, u, p, t)
+    a,b,c = p
+    x, y, s1, s2, s3, s4, s5, s6 = u
+    du[1] = a*x - b*x*y
+    du[2] = -c*y + x*y
+    #####################
+    #     [a-by -bx]
+    # J = [        ]
+    #     [y    x-c]
+    #####################
+    J  = @SMatrix [a-b*y -b*x
+                   y    x-c]
+    JS = J*@SMatrix[s1 s3 s5
+                    s2 s4 s6]
+    G  = @SMatrix [x -x*y 0
+                   0  0  -y]
+    du[3:end] .= vec(JS+G)
+
+    #du[1+1] = -(b*s2*x) + s1*(a - b*y) + x
+    #du[1+2] = s2*(-c + x) + s1*y       + 0
+    #du[1+3] = -(b*s4*x) + s3*(a - b*y) - x*y
+    #du[1+4] = s4*(-c + x) + s3*y       + 0
+    #du[1+5] = -(b*s6*x) + s5*(a - b*y) + 0
+    #du[1+6] = s6*(-c + x) + s5*y       - y
+    nothing
+end
+com_u0 = [u0...;zeros(6)]
+comprob = ODEProblem(com_df, com_u0, tspan, p)
+@time solve(comprob, Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)
+@btime solve($comprob, $(Vern6()),save_everystep=false,abstol=1e-5,reltol=1e-7)
+#=====================================
+julia> @time solve(comprob, Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)
+  2.678311 seconds (5.41 M allocations: 271.934 MiB, 8.16% gc time)
+retcode: Success
+Interpolation: 1st order linear
+t: 2-element Array{Float64,1}:
+  0.0
+ 10.0
+u: 2-element Array{Array{Float64,1},1}:
+ [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+ [1.02635, 0.909691, 2.16056, -6.25677, 0.188568, -0.697976, 0.563185, -1.70902]
+
+julia> @btime solve($comprob, $(Vern6()),save_everystep=false,abstol=1e-5,reltol=1e-7)
+  52.278 μs (103 allocations: 9.13 KiB)
+retcode: Success
+Interpolation: 1st order linear
+t: 2-element Array{Float64,1}:
+  0.0
+ 10.0
+u: 2-element Array{Array{Float64,1},1}:
+ [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+ [1.02635, 0.909691, 2.16056, -6.25677, 0.188568, -0.697976, 0.563185, -1.70902]
+======================================#
+
 #======================================
 julia> @time auto_sen(f, u0s, tspan, sp)
  21.132961 seconds (35.99 M allocations: 1.818 GiB, 4.47% gc time)

@@ -3,7 +3,7 @@
 
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays, Profile, ProfileView
 
-function f(u, p, t)
+f = function (u, p, t)
     a,b,c = p
     x, y = u
     dx = a*x - b*x*y
@@ -11,7 +11,7 @@ function f(u, p, t)
     @SVector [dx, dy]
 end
 
-function df(du, u, p, t)
+df = function (du, u, p, t)
     a,b,c = p
     x, y = u
     du[1] = a*x - b*x*y
@@ -29,7 +29,7 @@ end
 
 function auto_sen(f, init, tspan, p)
     test_f(p) = begin
-        prob = ODEProblem(f,eltype(p).(init),eltype(p).(tspan),p)
+        prob = ODEProblem(f,eltype(p).(init),tspan,p)
         solve(prob,Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)[end]
     end
     ForwardDiff.jacobian(test_f, p)

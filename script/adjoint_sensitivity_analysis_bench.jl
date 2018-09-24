@@ -1,11 +1,9 @@
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools, Profile, ProfileView, ParameterizedFunctions
 
-@eval begin
-    df = @ode_def $(gensym()) begin
-      dx = a*x - b*x*y
-      dy = -c*y + x*y
-    end a b c
-end
+df = @ode_def begin
+  dx = a*x - b*x*y
+  dy = -c*y + x*y
+end a b c
 
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0];
 
@@ -19,7 +17,7 @@ end
 
 function auto_sen_l2(f, init, tspan, p, t, alg=Vern6(); diffalg=ForwardDiff.gradient)
     test_f(p) = begin
-        prob = ODEProblem(f,eltype(p).(init),eltype(p).(tspan),p)
+        prob = ODEProblem(f,eltype(p).(init),tspan,p)
         sol = solve(prob,alg,abstol=1e-5,reltol=1e-7,saveat=t)
         sum(sol.u) do x
             sum(z->(1-z)^2/2, x)

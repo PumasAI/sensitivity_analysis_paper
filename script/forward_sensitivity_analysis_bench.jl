@@ -1,6 +1,7 @@
 # =============================================================== #
 # Small regime (2x3 Jacobian matrix)
 
+include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays, Profile, ProfileView
 
 f = function (u, p, t)
@@ -19,29 +20,7 @@ df = function (du, u, p, t)
     nothing
 end
 
-u0s = @SVector [1.,1.]; u0 = [1.,1.]; tspan = (0., 10.); sp = @SVector [1.5,1.0,3.0]; p = [1.5,1.0,3.0]
-
-function diffeq_sen(f, init, tspan, p)
-    prob = ODELocalSensitivityProblem(f,init,tspan,p)
-    sol = solve(prob,Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)
-    extract_local_sensitivities(sol, length(sol))[2]
-end
-
-function auto_sen(f, init, tspan, p)
-    test_f(p) = begin
-        prob = ODEProblem(f,eltype(p).(init),tspan,p)
-        solve(prob,Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)[end]
-    end
-    ForwardDiff.jacobian(test_f, p)
-end
-@time auto_sen(f, u0s, tspan, sp)
-@time auto_sen(df, u0, tspan, p)
-@time diffeq_sen(df, u0, tspan, p)
-@btime auto_sen($f, $u0s, $tspan, $sp)
-@btime auto_sen($df, $u0, $tspan, $p)
-@btime diffeq_sen($df, $u0, $tspan, $p)
-
-function com_df(du, u, p, t)
+com_df = function (du, u, p, t)
     a,b,c = p
     x, y, s1, s2, s3, s4, s5, s6 = u
     du[1] = a*x - b*x*y
@@ -58,42 +37,21 @@ function com_df(du, u, p, t)
     G  = @SMatrix [x -x*y 0
                    0  0  -y]
     du[3:end] .= vec(JS+G)
-
-    #du[1+1] = -(b*s2*x) + s1*(a - b*y) + x
-    #du[1+2] = s2*(-c + x) + s1*y       + 0
-    #du[1+3] = -(b*s4*x) + s3*(a - b*y) - x*y
-    #du[1+4] = s4*(-c + x) + s3*y       + 0
-    #du[1+5] = -(b*s6*x) + s5*(a - b*y) + 0
-    #du[1+6] = s6*(-c + x) + s5*y       - y
     nothing
 end
+
 com_u0 = [u0...;zeros(6)]
 comprob = ODEProblem(com_df, com_u0, tspan, p)
-@time solve(comprob, Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)
-@btime solve($comprob, $(Vern6()),save_everystep=false,abstol=1e-5,reltol=1e-7)
-#=====================================
-julia> @time solve(comprob, Vern6(),save_everystep=false,abstol=1e-5,reltol=1e-7)
-  2.678311 seconds (5.41 M allocations: 271.934 MiB, 8.16% gc time)
-retcode: Success
-Interpolation: 1st order linear
-t: 2-element Array{Float64,1}:
-  0.0
- 10.0
-u: 2-element Array{Array{Float64,1},1}:
- [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
- [1.02635, 0.909691, 2.16056, -6.25677, 0.188568, -0.697976, 0.563185, -1.70902]
+u0s = @SVector [1.,1.]; u0 = [1.,1.]; tspan = (0., 10.); sp = @SVector [1.5,1.0,3.0]; p = [1.5,1.0,3.0]
 
-julia> @btime solve($comprob, $(Vern6()),save_everystep=false,abstol=1e-5,reltol=1e-7)
-  52.278 μs (103 allocations: 9.13 KiB)
-retcode: Success
-Interpolation: 1st order linear
-t: 2-element Array{Float64,1}:
-  0.0
- 10.0
-u: 2-element Array{Array{Float64,1},1}:
- [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
- [1.02635, 0.909691, 2.16056, -6.25677, 0.188568, -0.697976, 0.563185, -1.70902]
-======================================#
+@time auto_sen(f, u0s, tspan, sp, Vern9(), abstol=1e-5,reltol=1e-7)
+@time auto_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+@time diffeq_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+@time solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7)
+@btime auto_sen($f, $u0s, $tspan, $sp, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime auto_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime diffeq_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7)
 
 #======================================
 julia> @time auto_sen(f, u0s, tspan, sp)
@@ -170,19 +128,6 @@ function df(du, u, p, t)
 end
 u0 = rand(100); tspan = (0., 0.4); p = rand(100);
 
-function diffeq_sen(f, init, tspan, p, alg=Vern6())
-    prob = ODELocalSensitivityProblem(f,init,tspan,p)
-    sol = solve(prob,alg,save_everystep=false,abstol=1e-5,reltol=1e-7)
-    extract_local_sensitivities(sol, length(sol))[2]
-end
-
-function auto_sen(f, init, tspan, p, alg=Vern6())
-    test_f(p) = begin
-        prob = ODEProblem(f,eltype(p).(init),eltype(p).(tspan),p)
-        solve(prob,alg,save_everystep=false,abstol=1e-5,reltol=1e-7)[end]
-    end
-    ForwardDiff.jacobian(test_f, p)
-end
 DiffEqBase.has_syms(::DiffEqSensitivity.ODELocalSensitvityFunction) = false
 DiffEqBase.has_tgrad(::DiffEqSensitivity.ODELocalSensitvityFunction) = false
 DiffEqBase.has_invW(::DiffEqSensitivity.ODELocalSensitvityFunction) = false
@@ -218,3 +163,4 @@ julia> @time diffeq_sen(df, u0, tspan, p, Rodas5(autodiff=false));
 
 # TODO: investigate allocations
 ==========================================#
+

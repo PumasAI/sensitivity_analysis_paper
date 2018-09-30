@@ -4,6 +4,7 @@
 include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays, Profile, ProfileView
 
+function make_lotkavolterra
 f = function (u, p, t)
     a,b,c = p
     x, y = u
@@ -116,51 +117,67 @@ ProfileView.svgwrite("diffeq_profile.svg")
 =#
 
 # =============================================================== #
-# Large regime (100x100 Jacobian matrix)
+# Large regime (200x3 Jacobian matrix)
 
-using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays, Profile, ProfileView
-using LinearAlgebra
-
-const D = Tridiagonal(rand(99), rand(100), rand(99))
-function df(du, u, p, t)
-    mul!(du, D, u)
-    @. du += p
+function makebrusselator(N=10)
+    xyd_brusselator = range(0,stop=1,length=32)
+    function limit(a, N)
+      if a == N+1
+        return 1
+      elseif a == 0
+        return N
+      else
+        return a
+      end
+    end
+    brusselator_f(x, y, t) = ifelse((((x-0.3)^2 + (y-0.6)^2) <= 0.1^2) &&
+                                    (t >= 1.1), 5., 0.)
+    function brusselator_2d_loop(du, u, p, t)
+        @inbounds begin
+            A, B, α  = p
+            xyd = xyd_brusselator
+            dx = step(xyd)
+            N = length(xyd)
+            α = α/dx^2
+            for I in CartesianIndices((N, N))
+              x = xyd[I[1]]
+              y = xyd[I[2]]
+              i = I[1]
+              j = I[2]
+              ip1 = limit(i+1, N)
+              im1 = limit(i-1, N)
+              jp1 = limit(j+1, N)
+              jm1 = limit(j-1, N)
+              du[i,j,1] = α*(u[im1,j,1] + u[ip1,j,1] + u[i,jp1,1] + u[i,jm1,1] - 4u[i,j,1]) +
+              B + u[i,j,1]^2*u[i,j,2] - (A + 1)*u[i,j,1] + brusselator_f(x, y, t)
+            end
+            for I in CartesianIndices((N, N))
+              i = I[1]
+              j = I[2]
+              ip1 = limit(i+1, N)
+              im1 = limit(i-1, N)
+              jp1 = limit(j+1, N)
+              jm1 = limit(j-1, N)
+              du[i,j,2] = α*(u[im1,j,2] + u[ip1,j,2] + u[i,jp1,2] + u[i,jm1,2] - 4u[i,j,2]) +
+              A*u[i,j,1] - u[i,j,1]^2*u[i,j,2]
+            end
+        end
+    end
+    function init_brusselator_2d(xyd)
+        N = length(xyd)
+        u = zeros(N, N, 2)
+        for I in CartesianIndices((N, N))
+            x = xyd[I[1]]
+            y = xyd[I[2]]
+            u[I,1] = 22*(y*(1-y))^(3/2)
+            u[I,2] = 27*(x*(1-x))^(3/2)
+        end
+        u
+    end
+    brusselator_2d_loop, init_brusselator_2d(xyd_brusselator)
 end
-u0 = rand(100); tspan = (0., 0.4); p = rand(100);
+@time auto_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.])
+#@time diffeq_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.]) TODO: DiffEqSensitivity doesn't work with 3 dimensional array?
 
-DiffEqBase.has_syms(::DiffEqSensitivity.ODELocalSensitvityFunction) = false
-DiffEqBase.has_tgrad(::DiffEqSensitivity.ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::DiffEqSensitivity.ODELocalSensitvityFunction) = false
-@time auto_sen(df, u0, tspan, p, Rodas5(autodiff=false))[1:3]
-@time diffeq_sen(df, u0, tspan, p, Rodas5(autodiff=false))[1][1:3]
-@time auto_sen(df, u0, tspan, p, Rodas5(autodiff=false));
-@time diffeq_sen(df, u0, tspan, p, Rodas5(autodiff=false));
-
-@time auto_sen(df, u0, tspan, p)[1:3]
-@time diffeq_sen(df, u0, tspan, p)[1][1:3]
-@btime auto_sen($df, $u0, $tspan, $p);
-@btime diffeq_sen($df, $u0, $tspan, $p);
-#==========================================
-julia> @time auto_sen(df, u0, tspan, p, Rodas5(autodiff=false))[1:3]
- 12.322556 seconds (38.20 M allocations: 2.334 GiB, 7.86% gc time)
-3-element Array{Float64,1}:
- 0.4937800270096975
- 0.0652016945329739
- 0.006998118349731402
-
-julia> @time diffeq_sen(df, u0, tspan, p, Rodas5(autodiff=false))[1][1:3]
- 98.789351 seconds (41.17 M allocations: 3.418 GiB, 0.81% gc time)
-3-element Array{Float64,1}:
- 0.49378002795271414
- 0.06520169515500866
- 0.006998119064051696
-
-julia> @time auto_sen(df, u0, tspan, p, Rodas5(autodiff=false));
-  0.191787 seconds (7.57 k allocations: 20.058 MiB, 3.20% gc time)
-
-julia> @time diffeq_sen(df, u0, tspan, p, Rodas5(autodiff=false));
-106.350115 seconds (24.42 M allocations: 2.614 GiB, 0.49% gc time)
-
-# TODO: investigate allocations
-==========================================#
-
+@time auto_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.])
+#@time diffeq_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.])

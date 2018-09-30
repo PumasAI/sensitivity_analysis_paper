@@ -1,15 +1,15 @@
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff
 
-function diffeq_sen(f, init, tspan, p, alg=Tsit5(); kwargs...)
+function diffeq_sen(f, init, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
     prob = ODELocalSensitivityProblem(f,init,tspan,p)
-    sol = solve(prob,alg; kwargs...)
+    sol = solve(prob,alg; save_everystep=save_everystep, kwargs...)
     extract_local_sensitivities(sol, length(sol))[2]
 end
 
-function auto_sen(f, init, tspan, p, alg=Tsit5(); kwargs...)
+function auto_sen(f, init, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
     test_f(p) = begin
         prob = ODEProblem(f,eltype(p).(init),tspan,p)
-        solve(prob,alg; kwargs...)[end]
+        solve(prob,alg; save_everystep=save_everystep, kwargs...)[end]
     end
     ForwardDiff.jacobian(test_f, p)
 end

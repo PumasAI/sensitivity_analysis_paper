@@ -2,7 +2,7 @@
 # Small regime (2x3 Jacobian matrix)
 
 include("sensitivity.jl")
-using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays, Profile, ProfileView
+using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
 
 function make_lotkavolterra
 f = function (u, p, t)
@@ -118,8 +118,8 @@ ProfileView.svgwrite("diffeq_profile.svg")
 
 # =============================================================== #
 # Large regime (200x3 Jacobian matrix)
-
-function makebrusselator(N=5)
+using LinearAlgebra, Test
+function makebrusselator(N=10)
     xyd_brusselator = range(0,stop=1,length=N)
     function limit(a, N)
       if a == N+1
@@ -176,8 +176,19 @@ function makebrusselator(N=5)
     end
     brusselator_2d_loop, init_brusselator_2d(xyd_brusselator)
 end
-@time auto_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
-@time diffeq_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
+# Run low tolerance to test correctness
+sol1 = @time auto_sen(makebrusselator(5)..., (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
+#  8.943112 seconds (50.37 M allocations: 2.323 GiB, 9.23% gc time)
+sol2 = @time diffeq_sen(makebrusselator(5)..., (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
+#  13.934268 seconds (195.79 M allocations: 10.914 GiB, 16.79% gc time)
+difference = copy(sol1)
+for i in eachindex(sol2)
+    difference[:, i] .-= sol2[i]
+end
+@test norm(difference) < 0.01
 
-@time auto_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
-@time diffeq_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
+# High tolerance to benchmark
+@time auto_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.])
+# 28.316505 seconds (598.77 M allocations: 25.160 GiB, 16.81% gc time)
+@time diffeq_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.])
+# Cannot finish in my laptop

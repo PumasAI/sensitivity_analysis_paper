@@ -119,8 +119,8 @@ ProfileView.svgwrite("diffeq_profile.svg")
 # =============================================================== #
 # Large regime (200x3 Jacobian matrix)
 
-function makebrusselator(N=10)
-    xyd_brusselator = range(0,stop=1,length=32)
+function makebrusselator(N=5)
+    xyd_brusselator = range(0,stop=1,length=N)
     function limit(a, N)
       if a == N+1
         return 1
@@ -139,17 +139,16 @@ function makebrusselator(N=10)
             dx = step(xyd)
             N = length(xyd)
             α = α/dx^2
+            II = LinearIndices((N, N, 2))
             for I in CartesianIndices((N, N))
-              x = xyd[I[1]]
-              y = xyd[I[2]]
-              i = I[1]
-              j = I[2]
-              ip1 = limit(i+1, N)
-              im1 = limit(i-1, N)
-              jp1 = limit(j+1, N)
-              jm1 = limit(j-1, N)
-              du[i,j,1] = α*(u[im1,j,1] + u[ip1,j,1] + u[i,jp1,1] + u[i,jm1,1] - 4u[i,j,1]) +
-              B + u[i,j,1]^2*u[i,j,2] - (A + 1)*u[i,j,1] + brusselator_f(x, y, t)
+                x = xyd[I[1]]
+                y = xyd[I[2]]
+                i = I[1]
+                j = I[2]
+                ip1 = limit(i+1, N); im1 = limit(i-1, N)
+                jp1 = limit(j+1, N); jm1 = limit(j-1, N)
+                du[II[i,j,1]] = α*(u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]]) +
+                    B + u[II[i,j,1]]^2*u[II[i,j,2]] - (A + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
             end
             for I in CartesianIndices((N, N))
               i = I[1]
@@ -158,9 +157,10 @@ function makebrusselator(N=10)
               im1 = limit(i-1, N)
               jp1 = limit(j+1, N)
               jm1 = limit(j-1, N)
-              du[i,j,2] = α*(u[im1,j,2] + u[ip1,j,2] + u[i,jp1,2] + u[i,jm1,2] - 4u[i,j,2]) +
-              A*u[i,j,1] - u[i,j,1]^2*u[i,j,2]
+              du[II[i,j,2]] = α*(u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]]) +
+                  A*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
             end
+            return nothing
         end
     end
     function init_brusselator_2d(xyd)
@@ -172,12 +172,12 @@ function makebrusselator(N=10)
             u[I,1] = 22*(y*(1-y))^(3/2)
             u[I,2] = 27*(x*(1-x))^(3/2)
         end
-        u
+        vec(u)
     end
     brusselator_2d_loop, init_brusselator_2d(xyd_brusselator)
 end
-@time auto_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.])
-#@time diffeq_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.]) TODO: DiffEqSensitivity doesn't work with 3 dimensional array?
+@time auto_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
+@time diffeq_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
 
-@time auto_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.])
-#@time diffeq_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.])
+@time auto_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)
+@time diffeq_sen(makebrusselator()..., (0,10.), [3.4, 1., 10.], Vern9(), abstol=1e-5,reltol=1e-7)

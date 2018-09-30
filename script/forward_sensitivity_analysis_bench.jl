@@ -4,14 +4,6 @@
 include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
 
-function make_lotkavolterra
-f = function (u, p, t)
-    a,b,c = p
-    x, y = u
-    dx = a*x - b*x*y
-    dy = -c*y + x*y
-    @SVector [dx, dy]
-end
 
 df = function (du, u, p, t)
     a,b,c = p
@@ -41,80 +33,55 @@ com_df = function (du, u, p, t)
     nothing
 end
 
+df_with_jacobian = ODEFunction(df, jac=(J,u,p,t)->begin
+                                   a,b,c = p
+                                   x, y = u
+                                   J[1] = a-b*y
+                                   J[2] = y
+                                   J[3] = -b*x
+                                   J[4] = x-c
+                                   nothing
+                               end)
+
+u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
 com_u0 = [u0...;zeros(6)]
 comprob = ODEProblem(com_df, com_u0, tspan, p)
-u0s = @SVector [1.,1.]; u0 = [1.,1.]; tspan = (0., 10.); sp = @SVector [1.5,1.0,3.0]; p = [1.5,1.0,3.0]
-
-@time auto_sen(f, u0s, tspan, sp, Vern9(), abstol=1e-5,reltol=1e-7)
-@time auto_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
-@time diffeq_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
-@time solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7)
-@btime auto_sen($f, $u0s, $tspan, $sp, $(Vern9()), abstol=1e-5,reltol=1e-7)
-@btime auto_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
-@btime diffeq_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
-@btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7)
-
-#======================================
-julia> @time auto_sen(f, u0s, tspan, sp)
- 21.132961 seconds (35.99 M allocations: 1.818 GiB, 4.47% gc time)
-2×3 SArray{Tuple{2,3},Float64,2,6}:
-  2.16057   0.18857    0.563188
- -6.25674  -0.697974  -1.70902
-
-julia> @time auto_sen(df, u0, tspan, p)
-  8.660524 seconds (18.07 M allocations: 904.867 MiB, 6.13% gc time)
-2×3 Array{Float64,2}:
-  2.16057   0.188568   0.563195
- -6.25674  -0.697975  -1.70902
-
-julia> @time diffeq_sen(df, u0, tspan, p)
-  5.388473 seconds (12.41 M allocations: 637.880 MiB, 6.57% gc time)
-3-element Array{Array{Float64,1},1}:
- [2.16056, -6.25677]
- [0.188568, -0.697976]
- [0.563185, -1.70902]
-
-julia> @btime auto_sen($f, $u0s, $tspan, $sp)
-  219.863 μs (1201 allocations: 89.85 KiB)
-2×3 SArray{Tuple{2,3},Float64,2,6}:
-  2.16057   0.18857    0.563188
- -6.25674  -0.697974  -1.70902
-
-julia> @btime auto_sen($df, $u0, $tspan, $p)
-  239.715 μs (836 allocations: 57.65 KiB)
-2×3 Array{Float64,2}:
-  2.16057   0.188568   0.563195
- -6.25674  -0.697975  -1.70902
-
-julia> @btime diffeq_sen($df, $u0, $tspan, $p)
-  500.736 μs (9635 allocations: 456.77 KiB)
-3-element Array{Array{Float64,1},1}:
- [2.16056, -6.25677]
- [0.188568, -0.697976]
- [0.563185, -1.70902]
-
-1. autodiff is much faster than the diffeq approach.
-
-2. Using `SVector` doesn't give any significant run-time benefits, but
-increases compile time drastically
-======================================#
-
-# Profile
 #=
-auto_sen(df, u0, tspan, p)
-Profile.clear()
-@profile for i in 1:500
-    auto_sen(df, u0, tspan, p)
+f = function (u, p, t)
+    a,b,c = p
+    x, y = u
+    dx = a*x - b*x*y
+    dy = -c*y + x*y
+    @SVector [dx, dy]
 end
-ProfileView.svgwrite("autodiff_profile.svg")
 
-diffeq_sen(df, u0, tspan, p)
-Profile.clear()
-@profile for i in 1:500
-    diffeq_sen(df, u0, tspan, p)
-end
-ProfileView.svgwrite("diffeq_profile.svg")
+# Using `SVector` doesn't give any significant run-time benefits, but increases
+# compile time drastically
+
+u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
+@time auto_sen(f, u0s, tspan, sp, Vern9(), abstol=1e-5,reltol=1e-7)
+# 139.719343 seconds (22.66 M allocations: 1.558 GiB, 0.58% gc time)
+@btime auto_sen($f, $u0s, $tspan, $sp, $(Vern9()), abstol=1e-5,reltol=1e-7)
+# 135.706 μs (499 allocations: 84.55 KiB)
 =#
+
+@time auto_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+# 13.564837 seconds (43.31 M allocations: 2.326 GiB, 9.15% gc time)
+@time diffeq_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+# 5.712511 seconds (16.38 M allocations: 931.242 MiB, 9.13% gc time)
+@time diffeq_sen(df_with_jacobian, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+# 2.679172 seconds (6.21 M allocations: 320.881 MiB, 5.36% gc time)
+@time solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7,save_everystep=false)
+# 3.484515 seconds (8.10 M allocations: 417.261 MiB, 7.50% gc time)
+
+@btime auto_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+# 99.404 μs (485 allocations: 57.11 KiB)
+@btime diffeq_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+# 308.289 μs (8137 allocations: 391.78 KiB)
+@btime diffeq_sen($df_with_jacobian, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+# 263.562 μs (8084 allocations: 389.08 KiB)
+@btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7,save_everystep=false)
+# 36.517 μs (111 allocations: 14.67 KiB)
 
 # =============================================================== #
 # Large regime (200x3 Jacobian matrix)

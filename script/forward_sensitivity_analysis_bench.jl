@@ -83,6 +83,15 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 @btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 36.517 μs (111 allocations: 14.67 KiB)
 
+@btime auto_sen($df, $u0, $tspan, $p, $(Vern9()))
+# 90.698 μs (467 allocations: 56.95 KiB)
+@btime diffeq_sen($df, $u0, $tspan, $p, $(Vern9()))
+# 255.729 μs (5849 allocations: 292.16 KiB)
+@btime diffeq_sen($df_with_jacobian, $u0, $tspan, $p, $(Vern9()))
+# 192.806 μs (5619 allocations: 273.50 KiB)
+@btime solve($comprob, $(Vern9()),save_everystep=false)
+# 27.937 μs (112 allocations: 14.66 KiB)
+
 # =============================================================== #
 # Large regime (128x3 Jacobian matrix)
 using LinearAlgebra, Test

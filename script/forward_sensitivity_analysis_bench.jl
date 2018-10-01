@@ -84,9 +84,9 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # 36.517 μs (111 allocations: 14.67 KiB)
 
 # =============================================================== #
-# Large regime (200x3 Jacobian matrix)
+# Large regime (128x3 Jacobian matrix)
 using LinearAlgebra, Test
-function makebrusselator(N=10)
+function makebrusselator(N=8)
     xyd_brusselator = range(0,stop=1,length=N)
     function limit(a, N)
       if a == N+1
@@ -156,6 +156,6 @@ end
 
 # High tolerance to benchmark
 @time auto_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.])
-# 28.316505 seconds (598.77 M allocations: 25.160 GiB, 16.81% gc time)
+#  13.632362 seconds (238.33 M allocations: 10.063 GiB, 15.94% gc time)
 @time diffeq_sen(makebrusselator()..., (0.,10.), [3.4, 1., 10.])
-# Cannot finish in my laptop
+# 302.428220 seconds (3.42 G allocations: 216.285 GiB, 12.05% gc time)

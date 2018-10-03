@@ -172,16 +172,60 @@ function makebrusselator(N=8)
         J2 = @view J[N2+1:end, 1:N2]
         J3 = @view J[1:N2,     N2+1:end]
         J4 = @view J[N2+1:end, N2+1:end]
-        J1[diagind(J1)] .+= @. 2u*v-4.4
-        J2[diagind(J2)] .= @. 3.4-2u*v
+        J1[diagind(J1)] .+= @. 2u*v-(A+1)
+        J2[diagind(J2)] .= @. A-2u*v
         J3[diagind(J3)] .= @. u^2
         J4[diagind(J4)] .+= @. -u^2
         nothing
     end
-    brusselator_2d_loop, init_brusselator_2d(xyd_brusselator), brusselator_jac
+    Jmat = zeros(2N*N, 2N*N)
+    dp = zeros(2N*N, 3)
+    @. dp[1:end÷2, 2] .= 1
+    function brusselator_comp(dus, us, p, t)
+        @inbounds begin
+            u, s = us[1:N*N*2], us[N*N*2+1:end]
+            du, ds = dus[1:N*N*2], dus[N*N*2+1:end]
+            @. dp[1:end÷2, 1] = -@view u[1:end÷2]
+            @. dp[end÷2+1:end, 1] = @view u[1:end÷2]
+            A, B, α  = p
+            dfdα = @view dp[:, 3]
+            xyd = xyd_brusselator
+            dx = step(xyd)
+            N = length(xyd)
+            α = α/dx^2
+            II = LinearIndices((N, N, 2))
+            for I in CartesianIndices((N, N))
+                x = xyd[I[1]]
+                y = xyd[I[2]]
+                i = I[1]
+                j = I[2]
+                ip1 = limit(i+1, N); im1 = limit(i-1, N)
+                jp1 = limit(j+1, N); jm1 = limit(j-1, N)
+                au = dfdα[II[i,j,1]] = u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]]
+                du[II[i,j,1]] = α*(au) + B + u[II[i,j,1]]^2*u[II[i,j,2]] - (A + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
+            end
+            for I in CartesianIndices((N, N))
+                i = I[1]
+                j = I[2]
+                ip1 = limit(i+1, N)
+                im1 = limit(i-1, N)
+                jp1 = limit(j+1, N)
+                jm1 = limit(j-1, N)
+                av = dfdα[II[i,j,2]] = u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]]
+                du[II[i,j,2]] = α*(av) + A*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
+            end
+            brusselator_jac(Jmat,u,p,t)
+            BLAS.gemm!('N', 'N', Jmat, reshape(s, N*N*2, 3), dp)
+            @. ds = dp
+            return nothing
+        end
+    end
+    u0 = init_brusselator_2d(xyd_brusselator)
+    brusselator_2d_loop, u0, brusselator_jac, ODEProblem(brusselator_comp, u0, (0,10.), [3.4, 1., 10.])
 end
 
-bfun, b_u0, brusselator_jac = makebrusselator(5)
+bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(5)
+sol1 = @time solve(brusselator_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
 # Run low tolerance to test correctness
 sol1 = @time auto_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
 #  8.943112 seconds (50.37 M allocations: 2.323 GiB, 9.23% gc time)

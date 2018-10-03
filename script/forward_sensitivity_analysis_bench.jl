@@ -236,6 +236,15 @@ sol3 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), 
 sol4 = @time solve(brusselator_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
 #  3.850392 seconds (36.08 M allocations: 941.787 MiB, 7.35% gc time)
 
+@btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
+#   1.159 s (25611160 allocations: 1.07 GiB)
+@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
+#   10.091 s (178932172 allocations: 10.27 GiB)
+@btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
+#   1.975 s (51638028 allocations: 1.20 GiB)
+@btime solve($brusselator_comp, $(Tsit5()), abstol=1e-5,reltol=1e-7,save_everystep=false);
+#   1.171 s (29331219 allocations: 593.95 MiB)
+
 difference1 = copy(sol1)
 difference2 = copy(sol1)
 difference3 = vec(sol1) .- vec(sol4[2][5*5*2+1:end])

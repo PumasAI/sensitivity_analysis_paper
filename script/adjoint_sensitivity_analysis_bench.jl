@@ -29,3 +29,38 @@ df_nojac = ODEFunction(df.f)
 # Without analytical Jacobian
 @btime diffeq_sen_l2($df_nojac, $u0, $tspan, $p, $t, $(Vern9()), abstol=1e-5,reltol=1e-7)
 #   5.810 ms (84827 allocations: 2.08 MiB)
+
+include("brusselator.jl")
+bp = [3.4, 1., 10.]
+bt = 0:0.5:10
+tspan = (0., 10.)
+bfun, b_u0, brusselator_jac, _ = makebrusselator(5)
+
+@btime auto_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false) # reverse mode
+#   29.925 s (162941580 allocations: 5.44 GiB)
+#=
+3253.997828166661
+-10120.945026662224
+-0.07716107201482299
+=#
+@btime auto_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Tsit5()), abstol=1e-5,reltol=1e-7, diffalg=$(ForwardDiff.gradient), save_everystep=false)
+#   1.291 s (25611301 allocations: 1.07 GiB)
+#=
+   3253.9979588435704
+ -10120.945328043885
+     -0.06790648237049532
+=#
+@btime diffeq_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false)
+# 9.239 s (154560416 allocations: 9.64 GiB)
+#=
+   3313.467995615832
+ -10250.292894948318
+    -10.312088281648458
+=#
+@btime diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $bp, $bt, $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false)
+#  964.180 ms (27009683 allocations: 563.93 MiB)
+#=
+   3313.467995615854
+ -10250.292894948521
+    -10.312088281649485
+=#

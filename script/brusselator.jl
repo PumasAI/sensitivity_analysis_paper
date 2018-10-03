@@ -1,3 +1,4 @@
+using LinearAlgebra
 function makebrusselator(N=8)
     xyd_brusselator = range(0,stop=1,length=N)
     function limit(a, N)

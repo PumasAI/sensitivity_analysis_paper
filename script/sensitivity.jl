@@ -17,7 +17,7 @@ end
 function diffeq_sen_l2(df, u0, tspan, p, t, alg=Tsit5();
                        abstol=1e-5, reltol=1e-7, iabstol=abstol, ireltol=reltol, kwargs...)
     prob = ODEProblem(df,u0,tspan,p)
-    sol = solve(prob, alg, abstol=abstol, reltol=reltol; kwargs...)
+    sol = solve(prob, alg, abstol=abstol, reltol=reltol, saveat=t; kwargs...)
     dg(out,u,p,t,i) = (out.=1.0.-u)
     adjoint_sensitivities(sol,alg,dg,t,abstol=abstol,
                           reltol=reltol,iabstol=abstol,ireltol=reltol)

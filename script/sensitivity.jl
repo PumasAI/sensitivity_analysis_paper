@@ -45,6 +45,6 @@ function auto_sen_full(f, init, tspan, p)
         prob = ODEProblem(f,eltype(p).(init),tspan,p)
         vec(solve(prob,Vern6(),saveat=t,abstol=1e-5,reltol=1e-7))
     end
-    sens = ForwardDiff.jacobian(test_f, p)
-    [reshape(sens[:,i]',length(init),length(t)) for i in 1:length(p)]
+    sol,sens = test_f(p),ForwardDiff.jacobian(test_f, p)
+    [reshape(sol',length(init),length(t)),[reshape(sens[:,i]',length(init),length(t)) for i in 1:length(p)]]
 end

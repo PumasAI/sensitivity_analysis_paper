@@ -16,26 +16,11 @@ function l2loss(oursol_type, data)
     l2loss
 end
 
-function diffeq_sen(f, init, tspan, p)
-    prob = ODELocalSensitivityProblem(f,init,tspan,p)
-    sol = solve(prob,Vern6(),abstol=1e-5,reltol=1e-7,saveat=t)
-    extract_local_sensitivities(sol)
-end
-
 costfunc = function (p)
     tmp_prob = ODEProblem(df,u0,tspan,p)
     sol = solve(tmp_prob,Vern6(),abstol=1e-5,reltol=1e-7,saveat=t)
     loss = l2loss(sol,data)
     loss
-end
-
-function auto_sen(f, init, tspan, p)
-    test_f(p) = begin
-        prob = ODEProblem(f,eltype(p).(init),tspan,p)
-        vec(solve(prob,Vern6(),saveat=t,abstol=1e-5,reltol=1e-7))
-    end
-    sens = ForwardDiff.jacobian(test_f, p)
-    [reshape(sens[:,i]',length(init),length(t)) for i in 1:length(p)]
 end
 
 function l2lossgradient!(grad,oursol,data,sensitivities,num_p)
@@ -58,9 +43,7 @@ function costfunc_gradient_diffeq(p,grad)
 end
 
 function costfunc_gradient_autosen(p,grad)
-    prob = ODEProblem(f,u0,tspan,p)
-    sol = solve(prob,Vern6(),saveat=t,abstol=1e-5,reltol=1e-7)
-    sensitivities = auto_sen_full(df, u0, tspan, p)
+    sol, sensitivities = auto_sen_full(df, u0, tspan, p)
     l2lossgradient!(grad,sol,data,sensitivities,length(p))
     costfunc(p)
 end
@@ -68,8 +51,8 @@ end
 function costfunc_gradient_comp(p,grad)
     com_u0 = [u0...;zeros(6)]
     comprob = ODEProblem(com_df, com_u0, tspan, p)
-    sol = solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7,save_everystep=false)
-    l2lossgradient!(grad,sol[1:length(u0)],data,sol[length(u0)+1:end],length(p))
+    sol = solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7,saveat=t)
+    l2lossgradient!(grad,sol[1:length(u0),:],data,[sol[i*length(u0)+1:i*length(u0)+length(u0),:] for i in 1:length(p)],length(p))
     costfunc(p)
 end
 
@@ -81,10 +64,12 @@ maxeval!(opt, 10000)
 
 min_objective!(opt, costfunc_gradient_autosen)
 (minf,minx,ret) = NLopt.optimize(opt,[0.5,0.5,0.5])
+println((minf,minx,ret))
 
 min_objective!(opt, costfunc_gradient_diffeq)
 (minf,minx,ret) = NLopt.optimize(opt,[0.5,0.5,0.5])
+println((minf,minx,ret))
 
 min_objective!(opt, costfunc_gradient_comp)
 (minf,minx,ret) = NLopt.optimize(opt,[0.5,0.5,0.5])
-
+println((minf,minx,ret))

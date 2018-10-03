@@ -95,6 +95,7 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # =============================================================== #
 # Large regime (128x3 Jacobian matrix)
 using LinearAlgebra, Test
+include("brusselator.jl")
 function makebrusselator(N=8)
     xyd_brusselator = range(0,stop=1,length=N)
     function limit(a, N)

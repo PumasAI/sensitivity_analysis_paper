@@ -65,6 +65,8 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # 135.706 μs (499 allocations: 84.55 KiB)
 =#
 
+@time numerical_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+# 3.401622 seconds (7.42 M allocations: 387.500 MiB, 6.50% gc time) 
 @time auto_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
 # 13.564837 seconds (43.31 M allocations: 2.326 GiB, 9.15% gc time)
 @time diffeq_sen(df, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
@@ -74,6 +76,8 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 @time solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 3.484515 seconds (8.10 M allocations: 417.261 MiB, 7.50% gc time)
 
+@btime numerical_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+# 534.718 μs (2614 allocations: 222.88 KiB) 
 @btime auto_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
 # 99.404 μs (485 allocations: 57.11 KiB)
 @btime diffeq_sen($df, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
@@ -83,6 +87,8 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 @btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 36.517 μs (111 allocations: 14.67 KiB)
 
+@btime numerical_sen($df, $u0, $tspan, $p, $(Vern9()))
+# 472.643 μs (2585 allocations: 222.13 KiB)
 @btime auto_sen($df, $u0, $tspan, $p, $(Vern9()))
 # 90.698 μs (467 allocations: 56.95 KiB)
 @btime diffeq_sen($df, $u0, $tspan, $p, $(Vern9()))
@@ -99,15 +105,19 @@ include("brusselator.jl")
 
 bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(5)
 # Run low tolerance to test correctness
-sol1 = @time auto_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
+sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
+# 9.300622 seconds (157.90 M allocations: 3.140 GiB, 8.82% gc time)
+sol2 = @time auto_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
 #  8.943112 seconds (50.37 M allocations: 2.323 GiB, 9.23% gc time)
-sol2 = @time diffeq_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
+sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
 #  13.934268 seconds (195.79 M allocations: 10.914 GiB, 16.79% gc time)
-sol3 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
+sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
 #  9.747963 seconds (175.60 M allocations: 10.206 GiB, 20.70% gc time)
-sol4 = @time solve(brusselator_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
+sol5 = @time solve(brusselator_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
 #  3.850392 seconds (36.08 M allocations: 941.787 MiB, 7.35% gc time)
 
+@btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
+# 6.883 s (153423891 allocations: 2.92 GiB)
 @btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
 #   1.159 s (25611160 allocations: 1.07 GiB)
 @btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
@@ -117,17 +127,19 @@ sol4 = @time solve(brusselator_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_every
 @btime solve($brusselator_comp, $(Tsit5()), abstol=1e-5,reltol=1e-7,save_everystep=false);
 #   1.171 s (29331219 allocations: 593.95 MiB)
 
-difference1 = copy(sol1)
-difference2 = copy(sol1)
-difference3 = vec(sol1) .- vec(sol4[2][5*5*2+1:end])
-for i in eachindex(sol2)
-    difference1[:, i] .-= sol2[i]
-    difference2[:, i] .-= sol3[i]
+difference1 = copy(sol2)
+difference2 = copy(sol2)
+difference3 = vec(sol2) .- vec(sol5[2][5*5*2+1:end])
+for i in eachindex(sol3)
+    difference1[:, i] .-= sol3[i]
+    difference2[:, i] .-= sol4[i]
 end
 @test norm(difference1) < 0.01 && norm(difference2) < 0.01 && norm(difference3) < 0.01
 
-# High tolerance to benchmark
+# # High tolerance to benchmark
 bfun_n, b_u0_n, brusselator_jacn, b_comp = makebrusselator(8)
+@time numerical_sen(bfun_n, b_u0_n, (0.,10.), [3.4, 1., 10.])
+# 57.474043 seconds (1.32 G allocations: 25.101 GiB, 9.46% gc time)
 @time auto_sen(bfun_n, b_u0_n, (0.,10.), [3.4, 1., 10.])
 #  13.632362 seconds (238.33 M allocations: 10.063 GiB, 15.94% gc time)
 @time diffeq_sen(bfun_n, b_u0_n, (0.,10.), [3.4, 1., 10.])

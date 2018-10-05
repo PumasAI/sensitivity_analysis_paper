@@ -33,3 +33,18 @@ function auto_sen_l2(f, init, tspan, p, t, alg=Tsit5(); diffalg=ReverseDiff.grad
     end
     diffalg(test_f, p)
 end
+
+function diffeq_sen_full(f, init, tspan, p)
+    prob = ODELocalSensitivityProblem(f,init,tspan,p)
+    sol = solve(prob,Vern6(),abstol=1e-5,reltol=1e-7,saveat=t)
+    extract_local_sensitivities(sol)
+end
+
+function auto_sen_full(f, init, tspan, p)
+    test_f(p) = begin
+        prob = ODEProblem(f,eltype(p).(init),tspan,p)
+        vec(solve(prob,Vern6(),saveat=t,abstol=1e-5,reltol=1e-7))
+    end
+    sol,sens = test_f(p),ForwardDiff.jacobian(test_f, p)
+    [reshape(sol',length(init),length(t)),[reshape(sens[:,i]',length(init),length(t)) for i in 1:length(p)]]
+end

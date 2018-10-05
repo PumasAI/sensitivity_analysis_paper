@@ -136,3 +136,18 @@ bfun_n, b_u0_n, brusselator_jacn, b_comp = makebrusselator(8)
 #  36.712953 seconds (442.08 M allocations: 10.215 GiB, 6.01% gc time)
 @time solve(b_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
 #  12.807239 seconds (249.44 M allocations: 4.843 GiB, 10.15% gc time)
+
+# 20×25 Jacobian
+include("pollution.jl")
+DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+
+pprob, pprob_jac = make_pollution()
+@btime auto_sen($(pprob.f), $(pprob.u0), $(pprob.tspan), $(pprob.p), $(Rodas5()),abstol=1e-5,reltol=1e-7)
+#   7.269 ms (5802 allocations: 750.31 KiB)
+@btime diffeq_sen($(pprob.f.f), $(pprob.u0), $(pprob.tspan), $(pprob.p), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7)
+#   906.562 ms (3724524 allocations: 174.96 MiB)
+@btime diffeq_sen($(pprob_jac.f), $(pprob_jac.u0), $(pprob_jac.tspan), $(pprob_jac.p), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7)
+#  830.873 ms (3724295 allocations: 174.94 MiB)
+# TODO: complile time sensitivity analysis

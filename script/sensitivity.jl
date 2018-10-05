@@ -1,4 +1,4 @@
-using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools
+using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus
 
 function diffeq_sen(f, init, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
     prob = ODELocalSensitivityProblem(f,init,tspan,p)
@@ -47,4 +47,12 @@ function auto_sen_full(f, init, tspan, p)
     end
     sol,sens = test_f(p),ForwardDiff.jacobian(test_f, p)
     [reshape(sol',length(init),length(t)),[reshape(sens[:,i]',length(init),length(t)) for i in 1:length(p)]]
+end
+
+function numerical_sen(f,init, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
+    test_f(out,p) = begin
+        prob = ODEProblem(f,eltype(p).(init),tspan,p)
+        out .= solve(prob,alg; save_everystep=save_everystep, kwargs...)[end]
+    end
+    DiffEqDiffTools.finite_difference_jacobian!(Matrix{Float64}(undef,length(init),length(p)),test_f, p, DiffEqDiffTools.JacobianCache(p,Array{Float64}(undef,length(init))))
 end

@@ -4,48 +4,11 @@
 include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
 
-
-df = function (du, u, p, t)
-    a,b,c = p
-    x, y = u
-    du[1] = a*x - b*x*y
-    du[2] = -c*y + x*y
-    nothing
-end
-
-com_df = function (du, u, p, t)
-    a,b,c = p
-    x, y, s1, s2, s3, s4, s5, s6 = u
-    du[1] = a*x - b*x*y
-    du[2] = -c*y + x*y
-    #####################
-    #     [a-by -bx]
-    # J = [        ]
-    #     [y    x-c]
-    #####################
-    J  = @SMatrix [a-b*y -b*x
-                   y    x-c]
-    JS = J*@SMatrix[s1 s3 s5
-                    s2 s4 s6]
-    G  = @SMatrix [x -x*y 0
-                   0  0  -y]
-    du[3:end] .= vec(JS+G)
-    nothing
-end
-
-df_with_jacobian = ODEFunction(df, jac=(J,u,p,t)->begin
-                                   a,b,c = p
-                                   x, y = u
-                                   J[1] = a-b*y
-                                   J[2] = y
-                                   J[3] = -b*x
-                                   J[4] = x-c
-                                   nothing
-                               end)
+include("lotka-volterra.jl")
 
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
-com_u0 = [u0...;zeros(6)]
-comprob = ODEProblem(com_df, com_u0, tspan, p)
+lvcom_u0 = [u0...;zeros(6)]
+comprob = ODEProblem(lvcom_df, lvcom_u0, tspan, p)
 #=
 f = function (u, p, t)
     a,b,c = p

@@ -121,7 +121,6 @@ function makebrusselator(N=8)
             brusselator_jac(Jmat,u,p,t)
             BLAS.gemm!('N', 'N', 1., Jmat, reshape(s, N*N*2, 3), 1., dp)
             dus[N*N*2+1:end] .= vec(dp)
-            #@show t
             return nothing
         end
     end

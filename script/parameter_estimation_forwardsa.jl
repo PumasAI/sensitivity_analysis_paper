@@ -1,6 +1,6 @@
 include("sensitivity.jl")
 include("lotka-volterra.jl")
-using Optim, BenchmarkTools
+using Optim, BenchmarkTools, Random
 
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
 t = collect(range(0, stop=10, length=200));
@@ -61,16 +61,17 @@ lower = [0.1,0.1,0.1]
 upper = [3.0,2.0,5.0]
 x0  = [0.5,0.5,0.5]
 inner_optimizer = LBFGS()
-res = optimize(p->costfunc(p,data,lvdf), (grad,p)->costfunc_gradient_diffeq(p,grad,lvdf,u0,tspan,data,t), lower, upper, x0, Fminbox(inner_optimizer));
+res = optimize(p->costfunc(p,data,lvdf), (grad,p)->costfunc_gradient_comp(p,grad,lvcom_df,[u0;zeros(6)],tspan,data,t), lower, upper, x0, Fminbox(inner_optimizer));
 @show Optim.minimizer(res), Optim.f_calls(res)
 res = optimize(p->costfunc(p,data,lvdf), (grad,p)->costfunc_gradient_autosen(p,grad,lvdf,u0,tspan,data,t), lower, upper, x0, Fminbox(inner_optimizer));
 @show Optim.minimizer(res), Optim.f_calls(res)
-res = optimize(p->costfunc(p,data,lvdf), (grad,p)->costfunc_gradient_comp(p,grad,lvcom_df,[u0;zeros(6)],tspan,data,t), lower, upper, x0, Fminbox(inner_optimizer));
+res = optimize(p->costfunc(p,data,lvdf), (grad,p)->costfunc_gradient_diffeq(p,grad,lvdf,u0,tspan,data,t), lower, upper, x0, Fminbox(inner_optimizer));
 @show Optim.minimizer(res), Optim.f_calls(res)
 
-@btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_autosen(p,grad,$lvdf,$u0,$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
-#71.360 ms (202781 allocations: 27.09 MiB)
+Random.seed!(1)
 @btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_comp(p,grad,$lvcom_df,$([u0;zeros(6)]),$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
-#110.219 ms (301531 allocations: 40.69 MiB)
+#  123.092 ms (303319 allocations: 41.61 MiB)
+@btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_autosen(p,grad,$lvdf,$u0,$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
+#  135.546 ms (318034 allocations: 45.67 MiB)
 @btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_diffeq(p,grad,$lvdf,$u0,$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
-#254.543 ms (2275293 allocations: 140.55 MiB)
+#  300.071 ms (2277081 allocations: 141.48 MiB)

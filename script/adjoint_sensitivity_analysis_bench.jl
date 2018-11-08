@@ -1,12 +1,13 @@
 include("sensitivity.jl")
-using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools, Profile, ProfileView, ParameterizedFunctions
+using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools#, Profile, ProfileView
+using ParameterizedFunctions
 
 df = @ode_def begin
   dx = a*x - b*x*y
   dy = -c*y + x*y
 end a b c
 
-u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0];
+u0 = [1.,1.]; tspan = (-0.1, 10.1); p = [1.5,1.0,3.0];
 
 t = 0:0.5:10
 
@@ -64,3 +65,24 @@ bfun, b_u0, brusselator_jac, _ = makebrusselator(5)
  -10250.292894948521
     -10.312088281649485
 =#
+
+include("pollution.jl")
+using BenchmarkTools, LinearAlgebra
+DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+
+function linsolve!(::Type{Val{:init}},f,u0)
+  function _linsolve!(x,A,b,update_matrix=false)
+    _A = lu!(A)
+    _x = similar(b)
+    ldiv!(_x,_A,b)
+    copyto!(x, _x)
+  end
+end
+pprob, pprob_jac = make_pollution()
+diffeq_sen_l2(pprob.f, pprob.u0, pprob.tspan, pprob.p, 0.0:0.1:60, Kvaerno5(autodiff=false,linsolve=linsolve!), sensalg=SensitivityAlg())
+#@btime auto_sen_l2($(pprob.f), $(pprob.u0), $(pprob.tspan), $(pprob.p), $(pprob.tspan), $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false) #reverse mode
+#@btime diffeq_sen_l2($(pprob.f), $(pprob.u0), $(pprob.tspan), $(pprob.p), $(bt), $(Tsit5()), abstol=1e-5,reltol=1e-7)
+#diffeq_sen_l2(pprob.f, pprob.u0, pprob.tspan, pprob.p, pprob.tspan, Rodas5())
+#@btime diffeq_sen_l2($(pprob_jac.f), $(pprob_jac.u0), $(pprob_jac.tspan), $(pprob_jac.p), $(pprob_jac.tspan), $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false)

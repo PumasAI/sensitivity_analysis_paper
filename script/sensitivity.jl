@@ -1,7 +1,7 @@
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus, DiffResults
 
-function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
-    prob = ODELocalSensitivityProblem(f,u0,tspan,p)
+function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); save_everystep=false, sensalg=SensitivityAlg(), kwargs...)
+    prob = ODELocalSensitivityProblem(f,u0,tspan,p,sensalg)
     sol = solve(prob,alg; save_everystep=save_everystep, kwargs...)
     extract_local_sensitivities(sol, length(sol))[2]
 end
@@ -15,9 +15,10 @@ function auto_sen(f, u0, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
 end
 
 function diffeq_sen_l2(df, u0, tspan, p, t, alg=Tsit5();
-                       abstol=1e-5, reltol=1e-7, iabstol=abstol, ireltol=reltol, kwargs...)
+                       abstol=1e-5, reltol=1e-7, iabstol=abstol, ireltol=reltol,
+                       sensalg=SensitivityAlg(), kwargs...)
     prob = ODEProblem(df,u0,tspan,p)
-    sol = solve(prob, alg, abstol=abstol, reltol=reltol, saveat=t; kwargs...)
+    sol = solve(prob, alg, abstol=abstol, reltol=reltol, saveat=vcat(tspan[1],t,tspan[end]); kwargs...)
     dg(out,u,p,t,i) = (out.=1.0.-u)
     adjoint_sensitivities(sol,alg,dg,t,abstol=abstol,
                           reltol=reltol,iabstol=abstol,ireltol=reltol)

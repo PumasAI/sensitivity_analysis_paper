@@ -118,20 +118,20 @@ bfun_n, b_u0_n, brusselator_jacn, b_comp = makebrusselator(8)
 
 # 20×25 Jacobian
 include("pollution.jl")
-pf, pfj, pcomp, pu0, pp, pcompu0 = make_pollution(pollution)
+pcomp, pu0, pp, pcompu0 = make_pollution(pollution)
 using BenchmarkTools
 DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
 ptspan = (0.,60.)
-@btime auto_sen($pf, $pu0, $ptspan, $pp, $(Rodas5()),abstol=1e-5,reltol=1e-7)
-# 7.967 ms (3051 allocations: 607.67 KiB)
-@btime diffeq_sen($pf, $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,sensalg=SensitivityAlg(autojacvec=false))
-# 4.978 s (3723191 allocations: 174.89 MiB)
-@btime diffeq_sen($pf, $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7)
-# with seeding   754.669 ms (3724523 allocations: 174.96 MiB)
-@btime diffeq_sen($pfj, $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7) # with Jacobian
-#  830.873 ms (3724295 allocations: 174.94 MiB)
-@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, pp)), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,save_everystep=false)
-#   557.856 ms (1952 allocations: 4.19 MiB)
+@btime auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()),abstol=1e-5,reltol=1e-7)
+# 8.075 ms (3051 allocations: 607.67 KiB)
+@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,sensalg=SensitivityAlg(autojacvec=false))
+# 945.459 ms (3723192 allocations: 174.89 MiB)
+@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7)
+# with seeding 762.009 ms (3723189 allocations: 174.88 MiB)
+@btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7) # with Jacobian
+# 994.041 ms (3723186 allocations: 174.89 MiB)
+@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, pollution, zeros(20, 20), zeros(20, 25)))), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,save_everystep=false)
+# 518.356 ms (96993 allocations: 5.64 MiB)

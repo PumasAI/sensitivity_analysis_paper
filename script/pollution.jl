@@ -23,9 +23,8 @@ pollution = @ode_def begin
   dy20 = -k25*y20+k24*y19*y1
 end k1  k2  k3  k4  k5  k6  k7  k8  k9  k10  k11  k12  k13  k14  k15  k16  k17  k18  k19  k20  k21  k22  k23  k24  k25
 function make_pollution(f=pollution)
-  J = zeros(20,20)
-  JP = zeros(20,25)
   function comp(du, u, p, t)
+    p, f, J, JP = p
     f.jac(J,u,p,t)
     f.paramjac(JP,u,p,t)
     mul!(du, J, u)
@@ -41,7 +40,7 @@ function make_pollution(f=pollution)
   u0[8]  = 0.3
   u0[9]  = 0.01
   u0[17] = 0.007
-  compu0 = similar(JP)
+  compu0 = zeros(20, 25)
   compu0[:, 1] .= u0
-  ODEFunction(f.f), ODEFunction(f.f, jac=f.jac), comp, u0, p, compu0
+  comp, u0, p, compu0
 end

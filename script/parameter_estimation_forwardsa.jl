@@ -69,9 +69,12 @@ res = optimize(p->costfunc(p,data,lvdf), (grad,p)->costfunc_gradient_diffeq(p,gr
 @show Optim.minimizer(res), Optim.f_calls(res)
 
 Random.seed!(1)
-@btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_comp(p,grad,$lvcom_df,$([u0;zeros(6)]),$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
-#  123.092 ms (303319 allocations: 41.61 MiB)
-@btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_autosen(p,grad,$lvdf,$u0,$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
-#  135.546 ms (318034 allocations: 45.67 MiB)
-@btime optimize(p->costfunc(p,$data,$lvdf), (grad,p)->costfunc_gradient_diffeq(p,grad,$lvdf,$u0,$tspan,$data,$t), $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
-#  300.071 ms (2277081 allocations: 141.48 MiB)
+@btime optimize($(p->costfunc(p,data,lvdf)), $((grad,p)->costfunc_gradient_comp(p,grad,lvcom_df,[u0;zeros(6)],tspan,data,t)),
+                $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
+# 88.989 ms (295500 allocations: 39.87 MiB)
+@btime optimize($(p->costfunc(p,data,lvdf)), $((grad,p)->costfunc_gradient_autosen(p,grad,lvdf,u0,tspan,data,t)),
+                $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
+# 100.323 ms (309120 allocations: 43.87 MiB)
+@btime optimize($(p->costfunc(p,data,lvdf)), $((grad,p)->costfunc_gradient_diffeq(p,grad,lvdf,u0,tspan,data,t)),
+                $lower, $upper, $x0, $(Fminbox(inner_optimizer)));
+# 230.918 ms (2205102 allocations: 135.82 MiB)

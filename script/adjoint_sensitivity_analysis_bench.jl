@@ -67,22 +67,19 @@ bfun, b_u0, brusselator_jac, _ = makebrusselator(5)
 =#
 
 include("pollution.jl")
+Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
 using BenchmarkTools, LinearAlgebra
 DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
-function linsolve!(::Type{Val{:init}},f,u0)
-  function _linsolve!(x,A,b,update_matrix=false)
-    _A = lu!(A)
-    _x = similar(b)
-    ldiv!(_x,_A,b)
-    copyto!(x, _x)
-  end
-end
-pprob, pprob_jac = make_pollution()
-diffeq_sen_l2(pprob.f, pprob.u0, pprob.tspan, pprob.p, 0.0:0.1:60, Kvaerno5(autodiff=false,linsolve=linsolve!), sensalg=SensitivityAlg())
-#@btime auto_sen_l2($(pprob.f), $(pprob.u0), $(pprob.tspan), $(pprob.p), $(pprob.tspan), $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false) #reverse mode
-#@btime diffeq_sen_l2($(pprob.f), $(pprob.u0), $(pprob.tspan), $(pprob.p), $(bt), $(Tsit5()), abstol=1e-5,reltol=1e-7)
-#diffeq_sen_l2(pprob.f, pprob.u0, pprob.tspan, pprob.p, pprob.tspan, Rodas5())
-#@btime diffeq_sen_l2($(pprob_jac.f), $(pprob_jac.u0), $(pprob_jac.tspan), $(pprob_jac.p), $(pprob_jac.tspan), $(Tsit5()), abstol=1e-5,reltol=1e-7, save_everystep=false)
+pcomp, pu0, pp, pcompu0 = make_pollution(pollution)
+pts = 0:0.5:2
+@btime diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $(-0.1,2.1), $pp, $pts, $(Rodas5(autodiff=false)), sensalg=$(SensitivityAlg()))
+# 2.593 s (19837898 allocations: 725.16 MiB)
+@btime diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $(-0.1,2.1), $pp, $pts, $(Rodas5(autodiff=false)), sensalg=$(SensitivityAlg(autojacvec=false)))
+# 2.267 s (19837898 allocations: 725.16 MiB)
+@btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $(-0.1,2.1), $pp, $pts, $(Rodas5(autodiff=false)))
+# 351.652 ms (3063903 allocations: 111.37 MiB)
+@btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $(-0.1,2.1), $pp, $pts, $(Rodas5(autodiff=false)), diffalg=ForwardDiff.gradient)
+# 3.605 ms (1917 allocations: 453.20 KiB)

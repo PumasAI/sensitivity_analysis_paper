@@ -1,4 +1,11 @@
-using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus, DiffResults
+using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus, DiffResults, DiffEqBase
+
+function diffeq_sen(prob::DiffEqBase.DEProblem, args...; kwargs...)
+  diffeq_sen(prob.f, prob.u0, prob.tspan, prob.p, args...; kwargs...)
+end
+function auto_sen(prob::DiffEqBase.DEProblem, args...; kwargs...)
+  auto_sen(prob.f, prob.u0, prob.tspan, prob.p, args...; kwargs...)
+end
 
 function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); save_everystep=false, sensalg=SensitivityAlg(), kwargs...)
     prob = ODELocalSensitivityProblem(f,u0,tspan,p,sensalg)

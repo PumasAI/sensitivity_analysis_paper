@@ -133,8 +133,8 @@ ptspan = (0.,60.)
 # with seeding 762.009 ms (3723189 allocations: 174.88 MiB)
 @btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7) # with Jacobian
 # 994.041 ms (3723186 allocations: 174.89 MiB)
-@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, pollution, zeros(20, 20), zeros(20, 25)))), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,save_everystep=false)
-# 518.356 ms (96993 allocations: 5.64 MiB)
+@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, pollution, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,save_everystep=false)
+# 522.323 ms (292060 allocations: 12.62 MiB)
 
 include("pkpd.jl")
 @btime auto_sen($pkpdprob, $(Vern9()),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)

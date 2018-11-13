@@ -81,9 +81,9 @@ pts = 0:0.5:60
 # -1.21909  0.0163272  4.88067e-10  -167.566  77.4104  4.4199e-6  -45.7476  …  -9.66059e-7  0.000415794  -0.000841743  0.156532  2.24244e-6  -0.00126731
 @time diffeq_sen_l2(ODEFunction(pollution.f), pu0, (-0.1,60.1), pp, pts, Rodas5(autodiff=false),
                      sensalg=SensitivityAlg(autojacvec=false)) # TODO: find out the reason which it has the exact same number of allocations, maybe I messed up?
-# 68.959907 seconds (548.84 M allocations: 19.589 GiB, 10.15% gc time)
+# 3.842465 seconds (27.84 M allocations: 762.102 MiB, 5.54% gc time)
 # 1×25 Adjoint{Float64,Array{Float64,1}}:
-#  -1.21909  0.0163272  4.88067e-10  -167.566  77.4104  4.4199e-6  -45.7476  …  -9.66059e-7  0.000415794  -0.000841743  0.156532  2.24244e-6  -0.00126731
+#  -1.21908  0.0163272  4.88082e-10  -167.566  77.4104  4.4199e-6  -45.7476  …  -9.66059e-7  0.000415794  -0.000841743  0.156532  2.24244e-6  -0.00126731
 @btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $(-0.1,60.1), $pp, $pts, $(Rodas5(autodiff=false)))
 # 255.377 ms (4735747 allocations: 167.20 MiB)
 #    -1.2204908070947482

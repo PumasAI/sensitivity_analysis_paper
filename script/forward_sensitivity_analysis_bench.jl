@@ -9,6 +9,32 @@ include("lotka-volterra.jl")
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
 lvcom_u0 = [u0...;zeros(6)]
 comprob = ODEProblem(lvcom_df, lvcom_u0, tspan, p)
+
+@btime solve($comprob, $(Vern9()),save_everystep=false);
+@btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
+@btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()));
+@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false));
+@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
+@btime numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
+#=
+julia> @btime solve($comprob, $(Vern9()),save_everystep=false);
+  29.779 μs (106 allocations: 14.53 KiB)
+
+julia> @btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
+  85.941 μs (461 allocations: 56.17 KiB)
+
+julia> @btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()));
+  188.735 μs (5615 allocations: 273.42 KiB)
+
+julia> @btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false));
+  260.237 μs (5843 allocations: 291.42 KiB)
+
+julia> @btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
+  212.115 μs (5839 allocations: 291.19 KiB)
+
+julia> @btime numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
+  419.034 μs (2579 allocations: 218.19 KiB)
+=#
 #=
 f = function (u, p, t)
     a,b,c = p
@@ -28,6 +54,7 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # 135.706 μs (499 allocations: 84.55 KiB)
 =#
 
+#=
 @time numerical_sen(lvdf, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
 # 3.401622 seconds (7.42 M allocations: 387.500 MiB, 6.50% gc time)
 @time auto_sen(lvdf, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
@@ -51,19 +78,7 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # 263.562 μs (8084 allocations: 389.08 KiB)
 @btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 36.517 μs (111 allocations: 14.67 KiB)
-
-@btime numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
-# 472.643 μs (2585 allocations: 222.13 KiB)
-@btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
-# 90.698 μs (467 allocations: 56.95 KiB)
-@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
-# 234.424 μs (5839 allocations: 291.19 KiB)
-@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false))
-# 281.621 μs (5841 allocations: 291.38 KiB)
-@btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()))
-# 192.806 μs (5619 allocations: 273.50 KiB)
-@btime solve($comprob, $(Vern9()),save_everystep=false)
-# 27.937 μs (112 allocations: 14.66 KiB)
+=#
 
 # =============================================================== #
 # Large regime (128x3 Jacobian matrix)
@@ -161,30 +176,36 @@ julia> @btime numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(R
 =#
 
 include("pkpd.jl")
-auto_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
-@btime auto_sen($pkpdprob, $(Vern9()),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
-# 4.349 ms (10148 allocations: 568.95 KiB)
-#  [-1.25782 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0; 0.0011805 -0.0124523 -0.049443 0.0392673 0.052271 -0.000116164 -0.000116164 -0.000159553 -0.000159553 0.0 0.0 0.0 0.0 0.0; 0.00127647 -0.0121023 -0.0482426 0.0384692 -0.000292376 0.000926783 -0.00017142 0.0501059 2.62154e-6 0.0 0.0 0.0 0.0 0.0; 0.00127647 -0.0121023 -0.0482426 0.0384692 -0.000292376 -0.00017142 0.000926783 2.62154e-6 0.0501059 0.0 0.0 0.0 0.0 0.0; -0.000163114 0.0116831 0.0466874 -0.0373218 2.75921e-5 1.19409e-5 1.19409e-5 -3.21866e-6 -3.21866e-6 4.56854 -4.56697 0.0490499 -0.43123 0.0678703]
-
-
-@btime diffeq_sen($pkpdprob, $(Vern9()), abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
-# 17.474 ms (134146 allocations: 6.21 MiB)
-# [-1.25782, 0.0011805, 0.00127647, 0.00127647, -0.000163114]
-# [0.0, -0.0124523, -0.0121023, -0.0121023, 0.0116831]
-# [0.0, -0.049443, -0.0482426, -0.0482426, 0.0466874]
-# [0.0, 0.0392673, 0.0384692, 0.0384692, -0.0373218]
-# [0.0, 0.052271, -0.000292375, -0.000292375, 2.75942e-5]
-# [0.0, -0.000116164, 0.000926783, -0.00017142, 1.19403e-5]
-# [0.0, -0.000116164, -0.00017142, 0.000926783, 1.19403e-5]
-# [0.0, -0.000159553, 0.0501059, 2.62159e-6, -3.21856e-6]
-# [0.0, -0.000159553, 2.62159e-6, 0.0501059, -3.21856e-6]
-# [0.0, 0.0, 0.0, 0.0, 4.56854]
-# [0.0, 0.0, 0.0, 0.0, -4.56697]
-# [0.0, 0.0, 0.0, 0.0, 0.0490499]
-# [0.0, 0.0, 0.0, 0.0, -0.43123]
-# [0.0, 0.0, 0.0, 0.0, 0.0678703]
-
 using Test
-diffeqpkpd = diffeq_sen(pkpdprob, Vern9(), abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
-autopkpd = auto_sen(pkpdprob, Vern9(), abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
-@test hcat(diffeqpkpd...) ≈ autopkpd atol=1e-5
+sol1 = solve(pkpdcompprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49,save_everystep=false)[end][6:end]
+sol2 = vec(auto_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49))
+sol3 = vec(hcat(diffeq_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)...))
+@test sol1 ≈ sol2 atol=1e-6
+@test sol2 ≈ sol3 atol=1e-6
+@btime solve($pkpdcompprob, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
+@btime auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+@btime diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+@btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
+                  sensalg=SensitivityAlg(autojacvec=false));
+@btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+@btime numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+#=
+julia> @btime solve($pkpdcompprob, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
+  7.826 ms (26114 allocations: 1.11 MiB)
+
+julia> @btime auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  4.235 ms (10704 allocations: 614.00 KiB)
+
+julia> @btime diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  9.502 ms (142587 allocations: 6.59 MiB)
+
+julia> @btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
+                         sensalg=SensitivityAlg(autojacvec=false));
+  9.935 ms (142815 allocations: 6.61 MiB)
+
+julia> @btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  20.042 ms (142807 allocations: 6.61 MiB)
+
+julia> @btime numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  15.921 ms (15945 allocations: 1.35 MiB)
+=#

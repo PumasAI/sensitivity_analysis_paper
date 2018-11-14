@@ -57,7 +57,9 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 @btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
 # 90.698 μs (467 allocations: 56.95 KiB)
 @btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
-# 255.729 μs (5849 allocations: 292.16 KiB)
+# 234.424 μs (5839 allocations: 291.19 KiB)
+@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false))
+# 281.621 μs (5841 allocations: 291.38 KiB)
 @btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()))
 # 192.806 μs (5619 allocations: 273.50 KiB)
 @btime solve($comprob, $(Vern9()),save_everystep=false)
@@ -84,18 +86,6 @@ sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), 
 sol5 = @time solve(brusselator_comp, Rodas5(), abstol=1e-5,reltol=1e-7,save_everystep=false);
 #  2.699624 seconds (6.05 M allocations: 347.092 MiB, 4.42% gc time)
 
-@btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()), abstol=1e-5,reltol=1e-7);
-# 138.664 ms (5805 allocations: 959.64 KiB)
-@btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()), abstol=1e-5,reltol=1e-7);
-# 33.484 ms (3695 allocations: 409.98 KiB)
-@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), abstol=1e-5,reltol=1e-7);
-# 742.538 ms (755818 allocations: 35.55 MiB)
-# without seeding 2.076 s (755821 allocations: 35.58 MiB)
-@btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), abstol=1e-5,reltol=1e-7);
-# 899.607 ms (1991090 allocations: 131.91 MiB)
-@btime solve($brusselator_comp, $(Rodas5(autodiff=false)), abstol=1e-5,reltol=1e-7,save_everystep=false);
-# 913.413 ms (1991060 allocations: 147.59 MiB)
-
 difference1 = copy(sol2)
 difference2 = copy(sol2)
 difference3 = vec(sol2) .- vec(sol5[2][5*5*2+1:end])
@@ -105,19 +95,33 @@ for i in eachindex(sol3)
 end
 @test norm(difference1) < 0.01 && norm(difference2) < 0.01 && norm(difference3) < 0.01 && norm(sol5[end][51:end] .- vec(sol1)) < 0.01
 
-# # High tolerance to benchmark
-bfun_n, b_u0_n, brusselator_jacn, b_comp = makebrusselator(8)
-@time numerical_sen(bfun_n, b_u0_n, (0.,10.), [3.4, 1., 10.])
-# 57.474043 seconds (1.32 G allocations: 25.101 GiB, 9.46% gc time)
-@time auto_sen(bfun_n, b_u0_n, (0.,10.), [3.4, 1., 10.])
-#  13.632362 seconds (238.33 M allocations: 10.063 GiB, 15.94% gc time)
-@time diffeq_sen(bfun_n, b_u0_n, (0.,10.), [3.4, 1., 10.])
-# 302.428220 seconds (3.42 G allocations: 216.285 GiB, 12.05% gc time)
-# with seeding 42.514960 seconds (1.10 G allocations: 29.561 GiB, 14.89% gc time)
-@time diffeq_sen(ODEFunction(bfun_n, jac=brusselator_jacn), b_u0_n, (0.,10.), [3.4, 1., 10.])
-#  36.712953 seconds (442.08 M allocations: 10.215 GiB, 6.01% gc time)
-@time solve(b_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
-#  12.807239 seconds (249.44 M allocations: 4.843 GiB, 10.15% gc time)
+# High tolerance to benchmark
+bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(8)
+@btime solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);
+@btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
+@btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
+@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
+@btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
+#=
+julia> @btime solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);
+  3.920 s (2551697 allocations: 276.98 MiB)
+
+julia> @btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
+  182.126 ms (2140 allocations: 1.36 MiB)
+
+julia> @btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
+  4.063 s (2551726 allocations: 228.80 MiB)
+
+julia> @btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+  19.600 s (968372 allocations: 48.96 MiB)
+
+julia> @btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
+  1.992 s (968370 allocations: 48.81 MiB)
+
+julia> @btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
+  582.517 ms (4628 allocations: 2.50 MiB)
+=#
 
 # 20×25 Jacobian
 include("pollution.jl")
@@ -128,18 +132,36 @@ DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
 ptspan = (0.,60.)
-@btime auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()),abstol=1e-5,reltol=1e-7)
-# 8.075 ms (3051 allocations: 607.67 KiB)
-@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,sensalg=SensitivityAlg(autojacvec=false))
-# 945.459 ms (3723192 allocations: 174.89 MiB)
-@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7)
-# with seeding 762.009 ms (3723189 allocations: 174.88 MiB)
-@btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7) # with Jacobian
-# 994.041 ms (3723186 allocations: 174.89 MiB)
-@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, pollution, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))), $(Rodas5(autodiff=false)),abstol=1e-5,reltol=1e-7,save_everystep=false)
-# 522.323 ms (292060 allocations: 12.62 MiB)
+@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))),
+             $(Rodas5(autodiff=false)),save_everystep=false);
+@btime auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
+@btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
+@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),sensalg=SensitivityAlg(autojacvec=false));
+@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
+@btime numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
+#=
+julia> @btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))),
+                    $(Rodas5(autodiff=false)),save_everystep=false);
+  427.458 ms (81494 allocations: 8.73 MiB)
+
+julia> @btime auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
+  8.913 ms (3116 allocations: 610.72 KiB)
+
+julia> @btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
+  721.244 ms (3075753 allocations: 145.22 MiB)
+
+julia> @btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),sensalg=SensitivityAlg(autojacvec=false));
+  836.049 ms (3075757 allocations: 145.22 MiB)
+
+julia> @btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
+  718.607 ms (3075755 allocations: 145.21 MiB)
+
+julia> @btime numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
+  39.125 ms (15708 allocations: 1.64 MiB)
+=#
 
 include("pkpd.jl")
+auto_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
 @btime auto_sen($pkpdprob, $(Vern9()),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)
 # 4.349 ms (10148 allocations: 568.95 KiB)
 #  [-1.25782 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0; 0.0011805 -0.0124523 -0.049443 0.0392673 0.052271 -0.000116164 -0.000116164 -0.000159553 -0.000159553 0.0 0.0 0.0 0.0 0.0; 0.00127647 -0.0121023 -0.0482426 0.0384692 -0.000292376 0.000926783 -0.00017142 0.0501059 2.62154e-6 0.0 0.0 0.0 0.0 0.0; 0.00127647 -0.0121023 -0.0482426 0.0384692 -0.000292376 -0.00017142 0.000926783 2.62154e-6 0.0501059 0.0 0.0 0.0 0.0 0.0; -0.000163114 0.0116831 0.0466874 -0.0373218 2.75921e-5 1.19409e-5 1.19409e-5 -3.21866e-6 -3.21866e-6 4.56854 -4.56697 0.0490499 -0.43123 0.0678703]

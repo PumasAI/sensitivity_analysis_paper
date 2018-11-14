@@ -22,16 +22,18 @@ pollution = @ode_def begin
   dy19 = -k21*y19-k22*y19-k24*y19*y1+k23*y1*y4+k25*y20
   dy20 = -k25*y20+k24*y19*y1
 end k1  k2  k3  k4  k5  k6  k7  k8  k9  k10  k11  k12  k13  k14  k15  k16  k17  k18  k19  k20  k21  k22  k23  k24  k25
-function make_pollution(f=pollution)
-  function comp(du, u, p, t)
-    p, f, J, JP, tmpdu, tmpu = p
-    tmpu  .= @view( u[:, 2:26])
-    f(@view(du[:, 1]), u, p, t)
-    f.jac(J,u,p,t)
-    f.paramjac(JP,u,p,t)
-    mul!(tmpdu, J, tmpu)
-    du[:,2:26] .= tmpdu .+ JP
-    nothing
+function make_pollution()
+  comp = let pollution = pollution
+    function comp(du, u, p, t)
+      p, J, JP, tmpdu, tmpu = p
+      tmpu  .= @view( u[:, 2:26])
+      pollution(@view(du[:, 1]), u, p, t)
+      pollution.jac(J,u,p,t)
+      pollution.paramjac(JP,u,p,t)
+      mul!(tmpdu, J, tmpu)
+      du[:,2:26] .= tmpdu .+ JP
+      nothing
+    end
   end
 
   u0 = zeros(20)

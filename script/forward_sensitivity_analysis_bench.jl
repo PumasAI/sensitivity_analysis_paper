@@ -67,31 +67,34 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # Large regime (128x3 Jacobian matrix)
 using LinearAlgebra, Test
 include("brusselator.jl")
+DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
 bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(5)
 # Run low tolerance to test correctness
-sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
-# 9.300622 seconds (157.90 M allocations: 3.140 GiB, 8.82% gc time)
-sol2 = @time auto_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
-#  8.943112 seconds (50.37 M allocations: 2.323 GiB, 9.23% gc time)
-sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
-#  13.934268 seconds (195.79 M allocations: 10.914 GiB, 16.79% gc time)
-sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), [3.4, 1., 10.], abstol=1e-5,reltol=1e-7)
-#  9.747963 seconds (175.60 M allocations: 10.206 GiB, 20.70% gc time)
-sol5 = @time solve(brusselator_comp, Tsit5(), abstol=1e-5,reltol=1e-7,save_everystep=false)
-#  3.850392 seconds (36.08 M allocations: 941.787 MiB, 7.35% gc time)
+sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(), abstol=1e-5,reltol=1e-7);
+#  4.086760 seconds (11.94 M allocations: 615.768 MiB, 8.97% gc time)
+sol2 = @time auto_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(), abstol=1e-5,reltol=1e-7);
+#  6.404542 seconds (18.41 M allocations: 862.547 MiB, 9.09% gc time)
+sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+#  3.390236 seconds (5.19 M allocations: 253.180 MiB, 4.74% gc time)
+sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+#  3.018417 seconds (6.22 M allocations: 339.178 MiB, 4.57% gc time)
+sol5 = @time solve(brusselator_comp, Rodas5(), abstol=1e-5,reltol=1e-7,save_everystep=false);
+#  2.699624 seconds (6.05 M allocations: 347.092 MiB, 4.42% gc time)
 
-@btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
-# 6.883 s (153423891 allocations: 2.92 GiB)
-@btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
-#   1.159 s (25611160 allocations: 1.07 GiB)
-@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
-#   10.091 s (178932172 allocations: 10.27 GiB)
-# with seeding 4.650 s (127871339 allocations: 3.43 GiB)
-@btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), abstol=1e-5,reltol=1e-7);
-#   1.975 s (51638028 allocations: 1.20 GiB)
-@btime solve($brusselator_comp, $(Tsit5()), abstol=1e-5,reltol=1e-7,save_everystep=false);
-#   1.171 s (29331219 allocations: 593.95 MiB)
+@btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()), abstol=1e-5,reltol=1e-7);
+# 138.664 ms (5805 allocations: 959.64 KiB)
+@btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()), abstol=1e-5,reltol=1e-7);
+# 33.484 ms (3695 allocations: 409.98 KiB)
+@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), abstol=1e-5,reltol=1e-7);
+# 742.538 ms (755818 allocations: 35.55 MiB)
+# without seeding 2.076 s (755821 allocations: 35.58 MiB)
+@btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), abstol=1e-5,reltol=1e-7);
+# 899.607 ms (1991090 allocations: 131.91 MiB)
+@btime solve($brusselator_comp, $(Rodas5(autodiff=false)), abstol=1e-5,reltol=1e-7,save_everystep=false);
+# 913.413 ms (1991060 allocations: 147.59 MiB)
 
 difference1 = copy(sol2)
 difference2 = copy(sol2)
@@ -100,7 +103,7 @@ for i in eachindex(sol3)
     difference1[:, i] .-= sol3[i]
     difference2[:, i] .-= sol4[i]
 end
-@test norm(difference1) < 0.01 && norm(difference2) < 0.01 && norm(difference3) < 0.01
+@test norm(difference1) < 0.01 && norm(difference2) < 0.01 && norm(difference3) < 0.01 && norm(sol5[end][51:end] .- vec(sol1)) < 0.01
 
 # # High tolerance to benchmark
 bfun_n, b_u0_n, brusselator_jacn, b_comp = makebrusselator(8)

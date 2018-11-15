@@ -1,41 +1,40 @@
 include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools#, Profile, ProfileView
-using ParameterizedFunctions
+using Test
+include("lotka-volterra.jl")
 
-lvdf = @ode_def begin
-  dx = a*x - b*x*y
-  dy = -c*y + x*y
-end a b c
+lvu0 = [1.,1.]; lvtspan = (-0.01, 10.01); lvp = [1.5,1.0,3.0];
 
-u0 = [1.,1.]; tspan = (-0.1, 10.1); p = [1.5,1.0,3.0];
+lvt = 0:0.5:10
 
-t = 0:0.5:10
-lvdf_nojac = ODEFunction(lvdf.f)
-
-@btime auto_sen_l2($lvdf, $u0, $tspan, $p, $t, $(Vern9()); diffalg=$(ForwardDiff.gradient));
-@btime auto_sen_l2($lvdf, $u0, $tspan, $p, $t, $(Vern9()); diffalg=$(ReverseDiff.gradient));
-@btime diffeq_sen_l2($lvdf, $u0, $tspan, $p, $t, $(Vern9()));
-@btime diffeq_sen_l2($lvdf_nojac, $u0, $tspan, $p, $t, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                     sensalg=SensitivityAlg(autojacvec=false));
-@btime diffeq_sen_l2($lvdf_nojac, $u0, $tspan, $p, $t, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                     sensalg=SensitivityAlg(autojacvec=true)); # with seeding
+lsol1 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ForwardDiff.gradient));
+lsol2 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ReverseDiff.gradient));
+lsol3 = @btime diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
+lsol4 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
+                             sensalg=$(SensitivityAlg(autojacvec=false)));
+lsol5 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
+                             sensalg=$(SensitivityAlg(autojacvec=true))); # with seeding
+@test maximum(abs, lsol1 .- lsol2)/maximum(abs,  lsol1) < 0.2
+@test maximum(abs, lsol1 .- lsol3')/maximum(abs, lsol1) < 0.2
+@test maximum(abs, lsol1 .- lsol4')/maximum(abs, lsol1) < 0.2
+@test maximum(abs, lsol1 .- lsol5')/maximum(abs, lsol1) < 0.2
 #=
-julia> @btime auto_sen_l2($lvdf, $u0, $tspan, $p, $t, $(Vern9()); diffalg=$(ForwardDiff.gradient));
-  75.715 μs (502 allocations: 74.30 KiB)
+julia> lsol1 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ForwardDiff.gradient));
+  133.855 μs (824 allocations: 97.41 KiB)
 
-julia> @btime auto_sen_l2($lvdf, $u0, $tspan, $p, $t, $(Vern9()); diffalg=$(ReverseDiff.gradient));
-  10.208 ms (229816 allocations: 8.20 MiB)
+julia> lsol2 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ReverseDiff.gradient));
+  9.488 ms (222039 allocations: 7.95 MiB)
 
-julia> @btime diffeq_sen_l2($lvdf, $u0, $tspan, $p, $t, $(Vern9()));
-  3.776 ms (75493 allocations: 1.78 MiB)
+julia> lsol3 = @btime diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
+  4.544 ms (92686 allocations: 2.42 MiB)
 
-julia> @btime diffeq_sen_l2($lvdf_nojac, $u0, $tspan, $p, $t, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                            sensalg=SensitivityAlg(autojacvec=false));
-  4.872 ms (93105 allocations: 2.43 MiB)
+julia> lsol4 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
+                                    sensalg=$(SensitivityAlg(autojacvec=false)));
+  4.730 ms (91094 allocations: 2.41 MiB)
 
-julia> @btime diffeq_sen_l2($lvdf_nojac, $u0, $tspan, $p, $t, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                            sensalg=SensitivityAlg(autojacvec=true));
-  9.917 ms (192929 allocations: 6.35 MiB)
+julia> lsol5 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
+                                    sensalg=$(SensitivityAlg(autojacvec=true))); # with seeding
+  9.388 ms (179860 allocations: 5.86 MiB)
 =#
 
 include("brusselator.jl")

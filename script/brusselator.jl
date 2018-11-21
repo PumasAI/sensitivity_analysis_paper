@@ -15,8 +15,12 @@ function makebrusselator(N=8)
     brusselator_2d_loop = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator)
       function brusselator_2d_loop(du, u, p, t)
           @inbounds begin
-              A, B, α  = p
-              α = α/dx^2
+              ii1 = N^2
+              ii2 = ii1+N^2
+              ii3 = ii2+2(N^2)
+              A = @view p[1:ii1]
+              B = @view p[ii1+1:ii2]
+              α = @view p[ii2+1:ii3]
               II = LinearIndices((N, N, 2))
               for I in CartesianIndices((N, N))
                   x = xyd[I[1]]
@@ -25,8 +29,8 @@ function makebrusselator(N=8)
                   j = I[2]
                   ip1 = limit(i+1, N); im1 = limit(i-1, N)
                   jp1 = limit(j+1, N); jm1 = limit(j-1, N)
-                  du[II[i,j,1]] = α*(u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]]) +
-                      B + u[II[i,j,1]]^2*u[II[i,j,2]] - (A + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
+                  du[II[i,j,1]] = α[II[i,j,1]]*(u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]])/dx^2 +
+                      B[II[i,j,1]] + u[II[i,j,1]]^2*u[II[i,j,2]] - (A[II[i,j,1]] + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
               end
               for I in CartesianIndices((N, N))
                 i = I[1]
@@ -35,8 +39,8 @@ function makebrusselator(N=8)
                 im1 = limit(i-1, N)
                 jp1 = limit(j+1, N)
                 jm1 = limit(j-1, N)
-                du[II[i,j,2]] = α*(u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]]) +
-                    A*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
+                du[II[i,j,2]] = α[II[i,j,2]]*(u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]])/dx^2 +
+                    A[II[i,j,1]]*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
               end
               return nothing
           end
@@ -62,14 +66,21 @@ function makebrusselator(N=8)
     # A + df/du
     Op = kron(Ie, T) + kron(T, Ie)
     brusselator_jac = (J,a,p,t) -> begin
-        A, B, α  = p
+        ii1 = N^2
+        ii2 = ii1+N^2
+        ii3 = ii2+2(N^2)
+        A = @view p[1:ii1]
+        B = @view p[ii1+1:ii2]
+        α = @view p[ii2+1:ii3]
         u = @view a[1:end÷2]
         v = @view a[end÷2+1:end]
         N2 = length(a)÷2
+        α1 = @view α[1:end÷2]
+        α2 = @view α[end÷2+1:end]
         fill!(J, 0)
 
-        J[1:N2, 1:N2] .= α.*Op
-        J[N2+1:end, N2+1:end] .= α.*Op
+        J[1:N2, 1:N2] .= α1.*Op
+        J[N2+1:end, N2+1:end] .= α2.*Op
 
         J1 = @view J[1:N2,     1:N2]
         J2 = @view J[N2+1:end, 1:N2]
@@ -82,19 +93,31 @@ function makebrusselator(N=8)
         nothing
     end
     Jmat = zeros(2N*N, 2N*N)
-    dp = zeros(2N*N, 3)
-    brusselator_comp = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator), Jmat=Jmat, dp=dp
+    dp = zeros(2N*N, 4N*N)
+    brusselator_comp = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator), Jmat=Jmat, dp=dp, brusselator_jac=brusselator_jac
       function brusselator_comp(dus, us, p, t)
           @inbounds begin
-              @views u, s = us[1:N*N*2], us[N*N*2+1:end]
-              du = @view dus[1:N*N*2]
+              ii1 = N^2
+              ii2 = ii1+N^2
+              ii3 = ii2+2(N^2)
+              @views u, s = us[1:ii2], us[ii2+1:end]
+              du = @view dus[1:ii2]
+              ds = @view dus[ii2+1:end]
               fill!(dp, 0)
-              dp[1:end÷2, 1] .= -@view u[1:end÷2]
-              dp[end÷2+1:end, 1] .= @view u[1:end÷2]
-              A, B, α  = p
-              dfdα = @view dp[:, 3]
-              @. dp[1:end÷2, 2] .= 1
+              A = @view p[1:ii1]
+              B = @view p[ii1+1:ii2]
+              α = @view p[ii2+1:ii3]
+              dfdα = @view dp[:, ii2+1:ii3]
+              diagind(dfdα)
+              for i in 1:ii1
+                dp[i, ii1+i] = 1
+              end
               II = LinearIndices((N, N, 2))
+              uu = @view u[1:end÷2]
+              for i in eachindex(uu)
+                dp[i, i] = -uu[i]
+                dp[i+ii1, i] = uu[i]
+              end
               for I in CartesianIndices((N, N))
                   x = xyd[I[1]]
                   y = xyd[I[2]]
@@ -102,8 +125,8 @@ function makebrusselator(N=8)
                   j = I[2]
                   ip1 = limit(i+1, N); im1 = limit(i-1, N)
                   jp1 = limit(j+1, N); jm1 = limit(j-1, N)
-                  au = dfdα[II[i,j,1]] = (u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]])/dx^2
-                  du[II[i,j,1]] = α*(au) + B + u[II[i,j,1]]^2*u[II[i,j,2]] - (A + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
+                  au = dfdα[II[i,j,1],II[i,j,1]] = (u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]])/dx^2
+                  du[II[i,j,1]] = α[II[i,j,1]]*(au) + B[II[i,j,1]] + u[II[i,j,1]]^2*u[II[i,j,2]] - (A[II[i,j,1]] + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
               end
               for I in CartesianIndices((N, N))
                   i = I[1]
@@ -112,16 +135,17 @@ function makebrusselator(N=8)
                   im1 = limit(i-1, N)
                   jp1 = limit(j+1, N)
                   jm1 = limit(j-1, N)
-                  av = dfdα[II[i,j,2]] = (u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]])/dx^2
-                  du[II[i,j,2]] = α*(av) + A*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
+                  av = dfdα[II[i,j,2],II[i,j,2]] = (u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]])/dx^2
+                  du[II[i,j,2]] = α[II[i,j,2]]*(av) + A[II[i,j,1]]*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
               end
               brusselator_jac(Jmat,u,p,t)
-              BLAS.gemm!('N', 'N', 1., Jmat, reshape(s, N*N*2, 3), 1., dp)
-              dus[N*N*2+1:end] .= vec(dp)
+              BLAS.gemm!('N', 'N', 1., Jmat, reshape(s, 2N*N, 4N*N), 1., dp)
+              copyto!(ds, vec(dp))
               return nothing
           end
       end
     end
     u0 = init_brusselator_2d(xyd_brusselator)
-    brusselator_2d_loop, u0, brusselator_jac, ODEProblem(brusselator_comp, [u0;zeros(N*N*2*3)], (0,10.), [3.4, 1., 10.])
+    p = [fill(3.4,N^2); fill(1.,N^2); fill(10.,2*N^2)]
+    brusselator_2d_loop, u0, p, brusselator_jac, ODEProblem(brusselator_comp, copy([u0;zeros((N^2*2)*(N^2*4))]), (0.,10.), p)
 end

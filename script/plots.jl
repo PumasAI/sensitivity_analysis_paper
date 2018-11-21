@@ -17,14 +17,15 @@ p1 = plot(t,sol',label=sol_labels,xlabel="time",ylabel="Lotka-Volterra",legend=:
 p2 = plot(t,sensitivities_ad[1]',label=sens_labels,xlabel="time",legend=:topleft,title="DSAAD")
 p3 = plot(t,sensitivities_diff[1]',label=sens_labels,xlabel="time",legend=:topleft,title="Continuous SA")
 
-bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(5)
-sol_bruss, sensitivities_bruss_ad = auto_sen_full(bfun, b_u0, (0.,10.), [3.4, 1., 10.], t)
-s_b, sensitivities_bruss_diff = diffeq_sen_full(bfun, b_u0, (0.,10.), [3.4, 1., 10.], t)
+n = 3
+bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+sol_bruss, sensitivities_bruss_ad = auto_sen_full(bfun, b_u0, (0.,10.), b_p, t)
+s_b, sensitivities_bruss_diff = diffeq_sen_full(bfun, b_u0, (0.,10.), b_p, t)
 maximum(abs, vcat(map((x,y)->x.-y, sensitivities_bruss_ad, sensitivities_bruss_diff)...))
 # 0.010689547914623933
 sol_labels = [raw"$u_{11}$" raw"$v_{11}$"]
 sens_labels = [raw"$\frac{\partial u_{11}}{\partial p_1}$" raw"$\frac{\partial v_{11}}{\partial p_1}$"]
-p1_b = plot(t,sol_bruss'[:,[1,26]],label=sol_labels,xlabel = "time",ylabel="Brusselator",legend=:topleft)
+p1_b = plot(t,sol_bruss'[:,[1,n^2+1]],label=sol_labels,xlabel = "time",ylabel="Brusselator",legend=:topleft)
 p2_b = plot(t,sensitivities_bruss_ad[1]'[:,[1,26]],label=sens_labels,xlabel="time",legend=:topleft)
 p3_b = plot(t,sensitivities_bruss_diff[1]'[:,[1,26]],label=sens_labels,xlabel="time",legend=:topleft)
 

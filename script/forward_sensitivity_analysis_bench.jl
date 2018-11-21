@@ -2,39 +2,126 @@
 # Small regime (2x3 Jacobian matrix)
 
 include("sensitivity.jl")
+DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
+using LinearAlgebra, Test
 
-include("lotka-volterra.jl")
+forward_lv = let
+  include("lotka-volterra.jl")
+  @info "Running the Lotka-Volterra model:"
+  u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]; lvcom_u0 = [u0...;zeros(6)]
+  comprob = ODEProblem(lvcom_df, lvcom_u0, tspan, p)
+  @info "  Running compile-time CSA"
+  t1 = @belapsed solve($comprob, $(Vern9()),save_everystep=false)
+  @info "  Running DSA"
+  t2 = @belapsed auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
+  @info "  Running CSA user-Jacobian"
+  t3 = @belapsed diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()))
+  @info "  Running AD-Jacobian"
+  t4 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false))
+  @info "  Running AD-Jv seeding"
+  t5 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=true))
+  @info "  Running numerical differentiation"
+  t6 = @belapsed numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
+  print('\n')
+  [t1, t2, t3, t4, t5, t6]
+end
 
-u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
-lvcom_u0 = [u0...;zeros(6)]
-comprob = ODEProblem(lvcom_df, lvcom_u0, tspan, p)
+# 18x36 Jacobian matrix
+forward_bruss = let
+  include("brusselator.jl")
+  @info "Running the Brusselator model:"
+  n = 3
+  # Run low tolerance to test correctness
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
+  sol2 = @time auto_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
+  sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  sol5 = @time solve(brusselator_comp, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7,save_everystep=false);
+  @test sol1 ≈ sol2 atol=1e-3
+  @test sol2 ≈ hcat(sol3...) atol=1e-4
+  @test sol2 ≈ hcat(sol4...) atol=1e-4
+  @test sol2 ≈ reshape(sol5[2][2n*n+1:end], 2n*n, 4n*n) atol=1e-4
 
-@btime solve($comprob, $(Vern9()),save_everystep=false);
-@btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
-@btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()));
-@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false));
-@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
-@btime numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
-#=
-julia> @btime solve($comprob, $(Vern9()),save_everystep=false);
-  29.779 μs (106 allocations: 14.53 KiB)
+  # High tolerance to benchmark
+  @info "  Running compile-time CSA"
+  t1 = @belapsed solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);
+  @info "  Running DSA"
+  t2 = @belapsed auto_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()));
+  @info "  Running CSA user-Jacobian"
+  t3 = @belapsed diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)));
+  @info "  Running AD-Jacobian"
+  t4 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+  @info "  Running AD-Jv seeding"
+  t5 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true));
+  @info "  Running numerical differentiation"
+  t6 = @belapsed numerical_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()));
+  print('\n')
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> @btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
-  85.941 μs (461 allocations: 56.17 KiB)
+# 20×25 Jacobian
+forward_pollution = let
+  include("pollution.jl")
+  @info "Running the pollution model:"
+  pcomp, pu0, pp, pcompu0 = make_pollution()
+  ptspan = (0.,60.)
+  @info "  Running compile-time CSA"
+  t1 = @belapsed solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))), $(Rodas5(autodiff=false)),save_everystep=false);
+  @info "  Running DSA"
+  t2 = @belapsed auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
+  @info "  Running CSA user-Jacobian"
+  t3 = @belapsed diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
+  @info "  Running AD-Jacobian"
+  t4 = @belapsed diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+  @info "  Running AD-Jv seeding"
+  t5 = @belapsed diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true));
+  @info "  Running numerical differentiation"
+  t6 = @belapsed numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
+  print('\n')
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> @btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()));
-  188.735 μs (5615 allocations: 273.42 KiB)
+forward_pkpd = let
+  include("pkpd.jl")
+  @info "Running the PKPD model:"
+  sol1 = solve(pkpdcompprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49,save_everystep=false)[end][6:end]
+  sol2 = vec(auto_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49))
+  sol3 = vec(hcat(diffeq_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)...))
+  @test sol1 ≈ sol2 atol=1e-6
+  @test sol2 ≈ sol3 atol=1e-6
+  @info "  Running compile-time CSA"
+  t1 = @belapsed solve($pkpdcompprob, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
+  @info "  Running DSA"
+  t2 = @belapsed auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  @info "  Running CSA user-Jacobian"
+  t3 = @belapsed diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  @info "  Running AD-Jacobian"
+  t4 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
+                    sensalg=SensitivityAlg(autojacvec=false));
+  @info "  Running AD-Jv seeding"
+  t5 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
+                         sensalg=SensitivityAlg(autojacvec=true));
+  @info "  Running numerical differentiation"
+  t6 = @belapsed numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  print('\n')
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> @btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false));
-  260.237 μs (5843 allocations: 291.42 KiB)
+using CSV, DataFrames
+let
+  forward_methods = ["Compile-time CSA", "DSA", "CSA user-Jacobian", "AD-Jacobian", "AD-Jv seeding", "Numerical Differentiation"]
+  forward_timeings = DataFrame(methods=forward_methods, LV=forward_lv, Bruss=forward_bruss, Pollution=forward_pollution, PKPD=forward_pkpd)
+  bench_file_path = joinpath(@__DIR__, "..", "forward_timings.csv")
+  display(forward_timeings)
+  @info "Writing the benchmark results to $bench_file_path"
+  CSV.write(bench_file_path, forward_timeings)
+end
 
-julia> @btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
-  212.115 μs (5839 allocations: 291.19 KiB)
-
-julia> @btime numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()));
-  419.034 μs (2579 allocations: 218.19 KiB)
-=#
 #=
 f = function (u, p, t)
     a,b,c = p
@@ -78,134 +165,4 @@ u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
 # 263.562 μs (8084 allocations: 389.08 KiB)
 @btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 36.517 μs (111 allocations: 14.67 KiB)
-=#
-
-# =============================================================== #
-# Large regime (128x3 Jacobian matrix)
-using LinearAlgebra, Test
-include("brusselator.jl")
-DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
-
-bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(5)
-# Run low tolerance to test correctness
-sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(), abstol=1e-5,reltol=1e-7);
-#  4.086760 seconds (11.94 M allocations: 615.768 MiB, 8.97% gc time)
-sol2 = @time auto_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(), abstol=1e-5,reltol=1e-7);
-#  6.404542 seconds (18.41 M allocations: 862.547 MiB, 9.09% gc time)
-sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
-#  3.390236 seconds (5.19 M allocations: 253.180 MiB, 4.74% gc time)
-sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), [3.4, 1., 10.], Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
-#  3.018417 seconds (6.22 M allocations: 339.178 MiB, 4.57% gc time)
-sol5 = @time solve(brusselator_comp, Rodas5(), abstol=1e-5,reltol=1e-7,save_everystep=false);
-#  2.699624 seconds (6.05 M allocations: 347.092 MiB, 4.42% gc time)
-
-difference1 = copy(sol2)
-difference2 = copy(sol2)
-difference3 = vec(sol2) .- vec(sol5[2][5*5*2+1:end])
-for i in eachindex(sol3)
-    difference1[:, i] .-= sol3[i]
-    difference2[:, i] .-= sol4[i]
-end
-@test norm(difference1) < 0.01 && norm(difference2) < 0.01 && norm(difference3) < 0.01 && norm(sol5[end][51:end] .- vec(sol1)) < 0.01
-
-# High tolerance to benchmark
-bfun, b_u0, brusselator_jac,brusselator_comp = makebrusselator(8)
-@btime solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);
-@btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
-@btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
-@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
-@btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
-@btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
-#=
-julia> @btime solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);
-  3.920 s (2551697 allocations: 276.98 MiB)
-
-julia> @btime auto_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
-  182.126 ms (2140 allocations: 1.36 MiB)
-
-julia> @btime diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
-  4.063 s (2551726 allocations: 228.80 MiB)
-
-julia> @btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
-  19.600 s (968372 allocations: 48.96 MiB)
-
-julia> @btime diffeq_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5(autodiff=false)));
-  1.992 s (968370 allocations: 48.81 MiB)
-
-julia> @btime numerical_sen($bfun, $b_u0, $((0.,10.)), $([3.4, 1., 10.]), $(Rodas5()));
-  582.517 ms (4628 allocations: 2.50 MiB)
-=#
-
-# 20×25 Jacobian
-include("pollution.jl")
-pcomp, pu0, pp, pcompu0 = make_pollution(pollution)
-using BenchmarkTools
-DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
-
-ptspan = (0.,60.)
-@btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))),
-             $(Rodas5(autodiff=false)),save_everystep=false);
-@btime auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
-@btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
-@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),sensalg=SensitivityAlg(autojacvec=false));
-@btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
-@btime numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
-#=
-julia> @btime solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))),
-                    $(Rodas5(autodiff=false)),save_everystep=false);
-  427.458 ms (81494 allocations: 8.73 MiB)
-
-julia> @btime auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
-  8.913 ms (3116 allocations: 610.72 KiB)
-
-julia> @btime diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
-  721.244 ms (3075753 allocations: 145.22 MiB)
-
-julia> @btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)),sensalg=SensitivityAlg(autojacvec=false));
-  836.049 ms (3075757 allocations: 145.22 MiB)
-
-julia> @btime diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
-  718.607 ms (3075755 allocations: 145.21 MiB)
-
-julia> @btime numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
-  39.125 ms (15708 allocations: 1.64 MiB)
-=#
-
-include("pkpd.jl")
-using Test
-sol1 = solve(pkpdcompprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49,save_everystep=false)[end][6:end]
-sol2 = vec(auto_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49))
-sol3 = vec(hcat(diffeq_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)...))
-@test sol1 ≈ sol2 atol=1e-6
-@test sol2 ≈ sol3 atol=1e-6
-@btime solve($pkpdcompprob, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
-@btime auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-@btime diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-@btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
-                  sensalg=SensitivityAlg(autojacvec=false));
-@btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-@btime numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-#=
-julia> @btime solve($pkpdcompprob, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
-  7.826 ms (26114 allocations: 1.11 MiB)
-
-julia> @btime auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-  4.235 ms (10704 allocations: 614.00 KiB)
-
-julia> @btime diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-  9.502 ms (142587 allocations: 6.59 MiB)
-
-julia> @btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
-                         sensalg=SensitivityAlg(autojacvec=false));
-  9.935 ms (142815 allocations: 6.61 MiB)
-
-julia> @btime diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-  20.042 ms (142807 allocations: 6.61 MiB)
-
-julia> @btime numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
-  15.921 ms (15945 allocations: 1.35 MiB)
 =#

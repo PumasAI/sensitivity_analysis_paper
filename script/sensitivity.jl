@@ -43,6 +43,17 @@ function auto_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); diffalg=ReverseDiff.gradie
     diffalg(test_f, p)
 end
 
+function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); save_everystep=false, kwargs...)
+  test_f(p) = begin
+    prob = ODEProblem(f,eltype(p).(u0),tspan,p)
+    sol = solve(prob,alg,saveat=t; kwargs...)
+    sum(sol.u) do x
+      sum(z->(1-z)^2/2, x)
+    end
+  end
+  DiffEqDiffTools.finite_difference_gradient(test_f, p, Val{:central})
+end
+
 function diffeq_sen_full(f, u0, tspan, p, t)
     prob = ODELocalSensitivityProblem(f,u0,tspan,p)
     sol = solve(prob,Vern6(),abstol=1e-5,reltol=1e-7,saveat=t,save_everystep=false)

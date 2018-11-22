@@ -43,12 +43,10 @@ forward_bruss = let
   sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
   sol5 = @time solve(brusselator_comp, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7,save_everystep=false);
   @test sol1 ≈ sol2 atol=1e-3
-  @test sol2 ≈ hcat(sol3...) atol=1e-4
-  @test sol2 ≈ hcat(sol4...) atol=1e-4
-  @test sol2 ≈ reshape(sol5[2][2n*n+1:end], 2n*n, 4n*n) atol=1e-4
+  @test sol2 ≈ hcat(sol3...) atol=1e-3
+  @test sol2 ≈ hcat(sol4...) atol=1e-3
+  @test sol2 ≈ reshape(sol5[2][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
 
-  n = 8
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   # High tolerance to benchmark
   @info "  Running compile-time CSA"
   t1 = @belapsed solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);

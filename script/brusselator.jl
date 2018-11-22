@@ -65,7 +65,8 @@ function makebrusselator(N=8)
     Ie = Matrix{Float64}(I, N, N)
     # A + df/du
     Op = kron(Ie, T) + kron(T, Ie)
-    brusselator_jac = (J,a,p,t) -> begin
+    brusselator_jac = let N=N
+      (J,a,p,t) -> begin
         ii1 = N^2
         ii2 = ii1+N^2
         ii3 = ii2+2(N^2)
@@ -91,6 +92,7 @@ function makebrusselator(N=8)
         J3[diagind(J3)] .= @. u^2
         J4[diagind(J4)] .+= @. -u^2
         nothing
+      end
     end
     Jmat = zeros(2N*N, 2N*N)
     dp = zeros(2N*N, 4N*N)

@@ -34,7 +34,7 @@ end
 forward_bruss = let
   include("brusselator.jl")
   @info "Running the Brusselator model:"
-  n = 3
+  n = 5
   # Run low tolerance to test correctness
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
@@ -47,6 +47,8 @@ forward_bruss = let
   @test sol2 ≈ hcat(sol4...) atol=1e-4
   @test sol2 ≈ reshape(sol5[2][2n*n+1:end], 2n*n, 4n*n) atol=1e-4
 
+  n = 8
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   # High tolerance to benchmark
   @info "  Running compile-time CSA"
   t1 = @belapsed solve($brusselator_comp, $(Rodas5(autodiff=false)), save_everystep=false);

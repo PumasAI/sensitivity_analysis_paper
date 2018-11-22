@@ -40,18 +40,18 @@ julia> lsol5 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9(
 =#
 
 include("brusselator.jl")
-bp = [3.4, 1., 10.]
 bt = 0:0.5:10
 tspan = (-0.01, 10.01)
-bfun, b_u0, brusselator_jac, _ = makebrusselator(5)
+n = 5
+bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
 
-bsol1 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient), save_everystep=false);
-bsol2 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient), save_everystep=false);
-bsol3 = @btime diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), save_everystep=false);
-bsol4 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
-bsol5 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true));
-bsol6 = @btime numerical_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5()), save_everystep=false);
+bsol1 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient), save_everystep=false);
+bsol2 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient), save_everystep=false);
+bsol3 = @btime diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false);
+bsol4 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
+bsol5 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true));
+bsol6 = @btime numerical_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), save_everystep=false);
 using Test
 @test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
 @test maximum(abs, bsol1 .- bsol3')/maximum(abs, bsol1) < 1e-2

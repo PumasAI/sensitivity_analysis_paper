@@ -1,116 +1,145 @@
 include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools#, Profile, ProfileView
+using LinearAlgebra
 using Test
-include("lotka-volterra.jl")
-
-lvu0 = [1.,1.]; lvtspan = (-0.01, 10.01); lvp = [1.5,1.0,3.0];
-
-lvt = 0:0.5:10
-
-lsol1 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ForwardDiff.gradient));
-lsol2 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ReverseDiff.gradient));
-lsol3 = @btime diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
-lsol4 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                             sensalg=$(SensitivityAlg(autojacvec=false)));
-lsol5 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                             sensalg=$(SensitivityAlg(autojacvec=true))); # with seeding
-lsol6 = @btime numerical_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7);
-@test maximum(abs, lsol1 .- lsol2)/maximum(abs,  lsol1) < 0.2
-@test maximum(abs, lsol1 .- lsol3')/maximum(abs, lsol1) < 0.2
-@test maximum(abs, lsol1 .- lsol4')/maximum(abs, lsol1) < 0.2
-@test maximum(abs, lsol1 .- lsol5')/maximum(abs, lsol1) < 0.2
-@test maximum(abs, lsol1 .- lsol6)/maximum(abs, lsol1) < 0.2
-#=
-julia> lsol1 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ForwardDiff.gradient));
-  133.855 μs (824 allocations: 97.41 KiB)
-
-julia> lsol2 = @btime auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ReverseDiff.gradient));
-  9.488 ms (222039 allocations: 7.95 MiB)
-
-julia> lsol3 = @btime diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
-  4.544 ms (92686 allocations: 2.42 MiB)
-
-julia> lsol4 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                                    sensalg=$(SensitivityAlg(autojacvec=false)));
-  4.730 ms (91094 allocations: 2.41 MiB)
-
-julia> lsol5 = @btime diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()), abstol=1e-5,reltol=1e-7;
-                                    sensalg=$(SensitivityAlg(autojacvec=true))); # with seeding
-  9.388 ms (179860 allocations: 5.86 MiB)
-=#
-
-include("brusselator.jl")
-bt = 0:0.5:10
-tspan = (-0.01, 10.01)
-n = 5
-bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
-
-bsol1 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient), save_everystep=false);
-bsol2 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient), save_everystep=false);
-bsol3 = @btime diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false);
-bsol4 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
-bsol5 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true));
-bsol6 = @btime numerical_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), save_everystep=false);
-using Test
-@test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
-@test maximum(abs, bsol1 .- bsol3')/maximum(abs, bsol1) < 1e-2
-@test maximum(abs, bsol1 .- bsol4')/maximum(abs, bsol1) < 1e-2
-@test maximum(abs, bsol1 .- bsol5')/maximum(abs, bsol1) < 1e-2
-#=
-julia> bsol1 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient), save_everystep=false);
-  16.678 ms (2377 allocations: 389.45 KiB)
-
-julia> bsol2 = @btime auto_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient), save_everystep=false);
-  11.851 s (85025440 allocations: 2.90 GiB)
-
-julia> bsol3 = @btime diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), save_everystep=false);
-  512.618 ms (3105112 allocations: 118.30 MiB)
-
-julia> bsol4 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
-  1.068 s (2617960 allocations: 81.97 MiB)
-
-julia> bsol5 = @btime diffeq_sen_l2($bfun, $b_u0, $tspan, $bp, $bt, $(Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true));
-  13.875 s (108723076 allocations: 4.03 GiB)
-=#
-
-include("pollution.jl")
-using BenchmarkTools, LinearAlgebra
 DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
-pcomp, pu0, pp, pcompu0 = make_pollution();
-ptspan = (-0.01, 60.01)
-pts = 0:0.5:60
-psol1 = @btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)), diffalg=$(ForwardDiff.gradient));
-psol2 = @btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient));
-psol3 = @btime diffeq_sen_l2($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)));
-psol4 = @btime diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)),
-                             sensalg=$(SensitivityAlg(autojacvec=false)));
-psol5 = @btime diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)),
-                             sensalg=(SensitivityAlg(autojacvec=true)));
-psol6 = @btime numerical_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)));
-@test maximum(abs, psol1 .- psol2)/maximum(abs,  psol1) < 1e-2
-@test maximum(abs, psol1 .- psol3')/maximum(abs, psol1) < 1e-2
-@test maximum(abs, psol1 .- psol4')/maximum(abs, psol1) < 1e-2
-@test maximum(abs, psol1 .- psol5')/maximum(abs, psol1) < 1e-2
-@test maximum(abs, psol1 .- psol6)/maximum(abs, psol1) < 1e-2
-#=
-julia> psol1 = @btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)), diffalg=$(ForwardDiff.gradient));
-  6.652 ms (4658 allocations: 1.16 MiB)
+adjoint_lv = let
+  include("lotka-volterra.jl")
+  @info "Running the Lotka-Volerra model:"
+  lvu0 = [1.,1.]; lvtspan = (-0.01, 10.01); lvp = [1.5,1.0,3.0];
+  lvt = 0:0.5:10
+  @time lsol1 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()); diffalg=(ForwardDiff.gradient), abstol=1e-5,reltol=1e-7);
+  @time lsol2 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()); diffalg=(ReverseDiff.gradient), abstol=1e-5,reltol=1e-7);
+  @time lsol3 = diffeq_sen_l2(lvdf_with_jacobian, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7);
+  @time lsol4 = diffeq_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7;
+                               sensalg=(SensitivityAlg(autojacvec=false)));
+  @time lsol5 = diffeq_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7;
+                               sensalg=(SensitivityAlg(autojacvec=true))); # with seeding
+  @time lsol6 = numerical_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7);
+  @test maximum(abs, lsol1 .- lsol2)/maximum(abs,  lsol1) < 0.2
+  @test maximum(abs, lsol1 .- lsol3')/maximum(abs, lsol1) < 0.2
+  @test maximum(abs, lsol1 .- lsol4')/maximum(abs, lsol1) < 0.2
+  @test maximum(abs, lsol1 .- lsol5')/maximum(abs, lsol1) < 0.2
+  @test maximum(abs, lsol1 .- lsol6)/maximum(abs, lsol1) < 0.2
+  t1 = @belapsed auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ForwardDiff.gradient));
+  t2 = @belapsed auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ReverseDiff.gradient));
+  t3 = @belapsed diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
+  t4 = @belapsed diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9());
+                               sensalg=$(SensitivityAlg(autojacvec=false)));
+  t5 = @belapsed diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9());
+                               sensalg=$(SensitivityAlg(autojacvec=true))); # with seeding
+  t6 = @belapsed numerical_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> psol2 = @btime auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient));
-  800.144 ms (4735749 allocations: 167.20 MiB)
+adjoint_bruss = let
+  include("brusselator.jl")
+  @info "Running the Brusselator model:"
+  bt = 0:0.5:10
+  tspan = (-0.01, 10.01)
+  n = 5
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false);
+  @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false);
+  @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false);
+  @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
+  @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true));
+  @time bsol6 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), save_everystep=false);
+  @test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
+  @test maximum(abs, bsol1 .- bsol3')/maximum(abs, bsol1) < 4e-2
+  @test maximum(abs, bsol3 .- bsol4)/maximum(abs, bsol3) < 1e-2
+  @test maximum(abs, bsol3 .- bsol5)/maximum(abs, bsol3) < 1e-2
+  @test maximum(abs, bsol1 .- bsol6)/maximum(abs, bsol1) < 2e-2
+  t1 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient), save_everystep=false);
+  t2 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient), save_everystep=false);
+  t3 = @belapsed diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false);
+  t4 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false,
+                               sensalg=SensitivityAlg(autojacvec=false));
+  t5 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false,
+                               sensalg=SensitivityAlg(autojacvec=true));
+  t6 = @belapsed numerical_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), save_everystep=false);
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> psol3 = @btime diffeq_sen_l2($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)));
-  3.132 s (27878798 allocations: 762.70 MiB)
+adjoint_pollution = let
+  include("pollution.jl")
+  @info "Running the Pollution model:"
+  pcomp, pu0, pp, pcompu0 = make_pollution();
+  ptspan = (-0.01, 60.01)
+  pts = 0:0.5:60
+  @time psol1 = auto_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)), diffalg=(ForwardDiff.gradient));
+  @time psol2 = auto_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient));
+  @time psol3 = diffeq_sen_l2((ODEFunction(pollution.f, jac=pollution.jac)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)));
+  @time psol4 = diffeq_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)),
+                               sensalg=(SensitivityAlg(autojacvec=false)));
+  @time psol5 = diffeq_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)),
+                               sensalg=(SensitivityAlg(autojacvec=true)));
+  @time psol6 = numerical_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)));
+  @test maximum(abs, psol1 .- psol2)/maximum(abs,  psol1) < 1e-2
+  @test maximum(abs, psol1 .- psol3')/maximum(abs, psol1) < 1e-2
+  @test maximum(abs, psol1 .- psol4')/maximum(abs, psol1) < 1e-2
+  @test maximum(abs, psol1 .- psol5')/maximum(abs, psol1) < 1e-2
+  @test maximum(abs, psol1 .- psol6)/maximum(abs, psol1) < 1e-2
+  t1 = @belapsed auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)), diffalg=$(ForwardDiff.gradient));
+  t2 = @belapsed auto_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient));
+  t3 = @belapsed diffeq_sen_l2($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)));
+  t4 = @belapsed diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)),
+                               sensalg=$(SensitivityAlg(autojacvec=false)));
+  t5 = @belapsed diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)),
+                               sensalg=(SensitivityAlg(autojacvec=true)));
+  t6 = @belapsed numerical_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)));
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> psol4 = @btime diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)),
-                                    sensalg=$(SensitivityAlg(autojacvec=false)));
-  4.763 s (27872094 allocations: 762.60 MiB)
+adjoint_pkpd = let
+  include("pkpd.jl")
+  @info "Running the PKPD model:"
+  pts = 0:0.5:50
+  # need to use lower tolerances to avoid running into the complex domain because of exponentiation
+  pkpdsol1 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()), callback=pkpdcb,
+                                diffalg=(ForwardDiff.gradient), reltol=1e-5, abstol=1e-7);
+  pkpdsol2 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()), callback=pkpdcb,
+                                diffalg=(ReverseDiff.gradient), reltol=1e-5, abstol=1e-7);
+  pkpdsol3 = @time diffeq_sen_l2((ODEFunction(pkpdf.f, jac=pkpdf.jac)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
+                                  callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  pkpdsol4 = @time diffeq_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
+                                  sensalg=(SensitivityAlg(autojacvec=false)), callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  pkpdsol5 = @time diffeq_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
+                                  sensalg=(SensitivityAlg(autojacvec=true)), callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  pkpdsol6 = @time numerical_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
+                                     callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  @test maximum(abs, pkpdsol1 .- pkpdsol2)/maximum(abs,  pkpdsol1) < 0.2
+  @test maximum(abs, pkpdsol1 .- pkpdsol3')/maximum(abs,  pkpdsol1) < 0.2
+  @test maximum(abs, pkpdsol1 .- pkpdsol4')/maximum(abs,  pkpdsol1) < 0.2
+  @test maximum(abs, pkpdsol1 .- pkpdsol5')/maximum(abs,  pkpdsol1) < 0.2
+  @test maximum(abs, pkpdsol1 .- pkpdsol6)/maximum(abs,  pkpdsol1) < 0.2
+  t1 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), callback=pkpdcb,
+                                diffalg=$(ForwardDiff.gradient), reltol=1e-5, abstol=1e-7);
+  t2 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), callback=pkpdcb,
+                                diffalg=$(ReverseDiff.gradient), reltol=1e-5, abstol=1e-7);
+  t3 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()),
+                                  callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  t4 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()),
+                                  sensalg=$(SensitivityAlg(autojacvec=false)), callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  t5 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()),
+                                  sensalg=(SensitivityAlg(autojacvec=true)), callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  t6 = @belapsed numerical_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()),
+                                     callback=pkpdcb, reltol=1e-5, abstol=1e-7);
+  [t1, t2, t3, t4, t5, t6]
+end
 
-julia> psol5 = @btime diffeq_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)),
-                                    sensalg=(SensitivityAlg(autojacvec=true)));
-  70.707 s (549603371 allocations: 19.62 GiB)
-=#
+using CSV, DataFrames
+let
+  adjoint_methods = ["Forward-Mode DSAAD", "Reverse-Mode DSAAD", "CASA User-Jacobian",
+                     "CASA AD-Jacobian", "CASA AD-Jv seeding", "Numerical Differentiation"]
+  adjoint_timeings = DataFrame(methods=adjoint_methods, LV=adjoint_lv, Bruss=adjoint_bruss,
+                               Pollution=adjoint_pollution, PKPD=adjoint_pkpd)
+  bench_file_path = joinpath(@__DIR__, "..", "adjoint_timings.csv")
+  display(adjoint_timeings)
+  @info "Writing the benchmark results to $bench_file_path"
+  CSV.write(bench_file_path, adjoint_timeings)
+end

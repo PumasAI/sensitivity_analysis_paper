@@ -39,16 +39,16 @@ end
 adjoint_bruss = let
   include("brusselator.jl")
   @info "Running the Brusselator model:"
-  bt = 0:0.5:10
+  bt = 0:0.1:10
   tspan = (-0.01, 10.01)
   n = 5
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
-  @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false);
+  @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false, reltol=1e-7, abstol=1e-5);
   @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false);
-  @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false);
-  @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
-  @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true));
-  @time bsol6 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), save_everystep=false);
+  @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, reltol=1e-7, abstol=1e-5);
+  @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false), reltol=1e-7, abstol=1e-5);
+  @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true), reltol=1e-7, abstol=1e-5);
+  @time bsol6 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), save_everystep=false, reltol=1e-7, abstol=1e-5);
   @test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
   @test maximum(abs, bsol1 .- bsol3')/maximum(abs, bsol1) < 4e-2
   @test maximum(abs, bsol3 .- bsol4)/maximum(abs, bsol3) < 1e-2

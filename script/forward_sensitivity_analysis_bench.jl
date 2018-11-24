@@ -36,7 +36,7 @@ forward_bruss = let
   @info "Running the Brusselator model:"
   n = 5
   # Run low tolerance to test correctness
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  bfun, bfun_oop, b_u0, b_p, brusselator_jac, brusselator_jac_oop, brusselator_comp = makebrusselator(n)
   sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
   sol2 = @time auto_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
   sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);

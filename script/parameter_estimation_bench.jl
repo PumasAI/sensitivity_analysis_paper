@@ -21,7 +21,7 @@ forward_param_bruss = let
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   forward_benchmark(bfun, brusselator_comp.f, brusselator_jac,
                     b_u0, brusselator_comp.u0, tspan, b_p, range(tspan[1], stop=tspan[end], length=10), 0.9.*b_p,
-                    alg=Rodas5(autodiff=false))
+                    alg=Rodas5(autodiff=false), verbose=true)
 end
 
 forward_param_pollution = let

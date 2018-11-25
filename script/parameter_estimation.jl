@@ -3,7 +3,8 @@ using Test
 include("sensitivity.jl")
 
 function forward_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
-                           alg=Tsit5(), lower=0.8.*p, upper=1.2.*p, save_everystep=false, kwargs...)
+                           alg=Tsit5(), lower=0.8.*p, upper=1.2.*p, save_everystep=false,
+                           verbose=false, kwargs...)
   prob_original = ODEProblem(fun, u0, tspan, p)
   data = solve(prob_original, alg; saveat=t, save_everystep=save_everystep, kwargs...)
   function l2loss(sol, data)
@@ -16,7 +17,9 @@ function forward_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
   function costfunc(p,data,df,t,u0)
     tmp_prob = ODEProblem(df, u0, tspan, p)
     sol = solve(tmp_prob, alg; saveat=t, save_everystep=save_everystep, kwargs...)
-    l2loss(sol,data)
+    loss = l2loss(sol,data)
+    verbose && @info "L2 Loss: $loss"
+    return loss
   end
   function l2lossgradient!(grad,sol,data,sensitivities,num_p)
     fill!(grad,0.0)

@@ -10,13 +10,14 @@ forward_param_lv = let
   @info "Running Lotka-Volterra"
   u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
   forward_benchmark(lvdf, lvcom_df, lvdf_with_jacobian.jac,
-                    u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=20), 0.9.*p)
+                    u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=100), 0.6.*p,
+                    iter=10, dropfirst=true)
 end
 
 forward_param_bruss = let
   include("brusselator.jl")
   @info "Running Brusselator"
-  n = 3
+  n = 2
   tspan = (0., 1.)
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   forward_benchmark(bfun, brusselator_comp.f, brusselator_jac,

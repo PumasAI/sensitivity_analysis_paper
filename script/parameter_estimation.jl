@@ -3,8 +3,8 @@ using Test
 include("sensitivity.jl")
 
 function forward_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
-                           alg=Tsit5(), lower=0.8.*p, upper=1.2.*p, save_everystep=false,
-                           verbose=false, kwargs...)
+                           alg=Tsit5(), lower=0.5.*p, upper=1.5.*p, save_everystep=false,
+                           verbose=false, iter=2, dropfirst=true, kwargs...)
   prob_original = ODEProblem(fun, u0, tspan, p)
   data = solve(prob_original, alg; saveat=t, save_everystep=save_everystep, kwargs...)
   function l2loss(sol, data)
@@ -50,52 +50,58 @@ function forward_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
     nvar = length(data[1])
     l2lossgradient!(grad,sol[1:nvar,:],data,[sol[i*nvar+1:i*nvar+nvar,:] for i in 1:length(p)], length(p))
   end
-  inner_optimizer = LBFGS()
-  opt = Optim.Options(x_tol=1e-4, f_tol=1e-4, g_tol=1e-4)
+  inner_optimizer = BFGS()
+  opt = Optim.Options(x_tol=1e-4, f_tol=1e-4, g_tol=3e-3)
   cost = let p=p, data=data, fun=fun, t=t, u0=u0
     p->costfunc(p,data,fun,t,u0)
   end
-  let p=p, data=data, fun=fun, t=t, u0=u0, tspan=tspan, compu0=compu0, compfun=compfun, fun=fun
-    s1 =  optimize(cost, ((grad,p)->costfunc_gradient_comp(p,grad,compfun,compu0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                             lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @test Optim.converged(s1)
-    s2 = optimize(cost, ((grad,p)->costfunc_gradient_autosen(p,grad,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                               lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @test Optim.converged(s2)
-    s3=optimize(cost, ((grad,p)->costfunc_gradient_diffeq(p,grad,ODEFunction(fun, jac=jac),u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                               lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @test Optim.converged(s3)
-    s4=optimize(cost, ((grad,p)->costfunc_gradient_diffeq(p,grad,fun,u0,tspan,data,t;
-                                                sensalg=SensitivityAlg(autojacvec=false), saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                                lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @test Optim.converged(s4)
-    s5=optimize(cost, ((grad,p)->costfunc_gradient_diffeq(p,grad,fun,u0,tspan,data,t;
-                                                sensalg=SensitivityAlg(autojacvec=true), saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                                lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @test Optim.converged(s5)
-    s6=optimize(cost, ((grad,p)->costfunc_gradient_num(p,grad,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                                lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @test Optim.converged(s6)
-    @info "  Running compile-time"
-    t1 = @elapsed optimize(cost, ((grad,p)->costfunc_gradient_comp(p,grad,compfun,compu0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                             lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @info "  Running DSA"
-    t2 = @elapsed optimize(cost, ((grad,p)->costfunc_gradient_autosen(p,grad,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                               lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @info "  Running CSA with user-Jacobian"
-    t3 = @elapsed s3=optimize(cost, ((grad,p)->costfunc_gradient_diffeq(p,grad,ODEFunction(fun, jac=jac),u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                               lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @info "  Running CSA AD-Jacobian"
-    t4 = @elapsed s4=optimize(cost, ((grad,p)->costfunc_gradient_diffeq(p,grad,fun,u0,tspan,data,t;
-                                                sensalg=SensitivityAlg(autojacvec=false), saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                                lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @info "  Running CSA AD-Jv seeding"
-    t5 = @elapsed s5=optimize(cost, ((grad,p)->costfunc_gradient_diffeq(p,grad,fun,u0,tspan,data,t;
-                                                sensalg=SensitivityAlg(autojacvec=true), saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                                lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    @info "  Running numerical differentiation"
-    t6 = @elapsed s6=optimize(cost, ((grad,p)->costfunc_gradient_num(p,grad,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...)),
-                                lower, upper, p0, (Fminbox(inner_optimizer)), opt);
-    [t1, t2, t3, t4, t5, t6]
+  forward_param_timings = let p=p, data=data, fun=fun, t=t, u0=u0, tspan=tspan, compu0=compu0, compfun=compfun, fun=fun
+    t1, t2, t3, t4, t5, t6 = zeros(6)
+    for i in 1:iter
+      @info " Iteration $i"
+      @info "  Running compile-time"
+      t1 += @elapsed (s=optimize(
+        cost,
+        (grad,p)->costfunc_gradient_comp(
+           p,grad,compfun,compu0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+        lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
+      @info "  Running DSA"
+      t2 += @elapsed (s=optimize(
+        cost,
+        (grad,p)->costfunc_gradient_autosen(
+          p,grad,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+        lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
+      @info "  Running CSA with user-Jacobian"
+      t3 += @elapsed (s=optimize(
+        cost,
+        (grad,p)->costfunc_gradient_diffeq(
+          p,grad,ODEFunction(fun, jac=jac),u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+        lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
+      @info "  Running CSA AD-Jacobian"
+      t4 += @elapsed (s=optimize(
+        cost,
+        (grad,p)->costfunc_gradient_diffeq(
+          p,grad,fun,u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=false),
+          saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+        lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
+      @info "  Running CSA AD-Jv seeding"
+      t5 += @elapsed (s=optimize(
+        cost,
+        (grad,p)->costfunc_gradient_diffeq(
+          p,grad,fun,u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=true),
+          saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+        lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
+      @info "  Running numerical differentiation"
+      t6 += @elapsed (s=optimize(
+        cost,
+        (grad,p)->costfunc_gradient_num(
+          p,grad,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+        lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s))
+      if dropfirst && i == 1
+        t1, t2, t3, t4, t5, t6 = zeros(6)
+      end
+    end
+    num = dropfirst ? iter-1 : iter
+    [t1, t2, t3, t4, t5, t6] ./ num
   end
 end

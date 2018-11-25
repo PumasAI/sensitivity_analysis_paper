@@ -54,9 +54,9 @@ function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); save_everystep=false,
   DiffEqDiffTools.finite_difference_gradient(test_f, p, Val{:central})
 end
 
-function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=false, kwargs...)
+function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=false, sensalg=SensitivityAlg(), kwargs...)
   prob = ODELocalSensitivityProblem(f,u0,tspan,p)
-  sol = solve(prob,alg;saveat=t,save_everystep=false,kwargs...)
+  sol = solve(prob,alg;saveat=t,save_everystep=false,sensealg=sensalg,kwargs...)
   extract_local_sensitivities(sol)
 end
 

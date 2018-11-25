@@ -21,9 +21,8 @@ pkpdcb = DiscreteCallback(pkpdcondition, pkpdaffect!)
 pkpdtspan = (0.,50.)
 pkpdprob = ODEProblem(pkpdf.f, pkpdu0, pkpdtspan, pkpdp)
 
-pkpdfcomp = let pkpdf=pkpdf
+pkpdfcomp = let pkpdf=pkpdf, J=zeros(5,5), JP=zeros(5,14), tmpdu=zeros(5,14), tmpu=zeros(5,14)
   function (du, u, p, t)
-    p, J, JP, tmpdu, tmpu = p
     vec(tmpu)  .= @view(u[6:end])
     pkpdf(@view(du[1:5]), u, p, t)
     pkpdf.jac(J,u,p,t)
@@ -33,6 +32,6 @@ pkpdfcomp = let pkpdf=pkpdf
     nothing
   end
 end
-pkpdcompprob = ODEProblem(pkpdfcomp, [pkpdprob.u0;zeros(5*14)], pkpdprob.tspan, (pkpdprob.p,zeros(5,5), zeros(5,14), zeros(5,14), zeros(5,14)))
+pkpdcompprob = ODEProblem(pkpdfcomp, [pkpdprob.u0;zeros(5*14)], pkpdprob.tspan, pkpdprob.p)
 #sol = solve(pkpdprob, Tsit5(), tstops=1:2:49, callback=pkpdcb)
 #plot(sol)

@@ -71,7 +71,7 @@ forward_pollution = let
   pcomp, pu0, pp, pcompu0 = make_pollution()
   ptspan = (0.,60.)
   @info "  Running compile-time CSA"
-  t1 = @belapsed solve($(ODEProblem(pcomp, pcompu0, ptspan, (pp, zeros(20, 20), zeros(20, 25), zeros(20,25), zeros(20,25)))), $(Rodas5(autodiff=false)),save_everystep=false);
+  t1 = @belapsed solve($(ODEProblem(pcomp, pcompu0, ptspan, pp)), $(Rodas5(autodiff=false)),save_everystep=false);
   @info "  Running DSA"
   t2 = @belapsed auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
   @info "  Running CSA user-Jacobian"

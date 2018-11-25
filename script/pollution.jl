@@ -23,9 +23,8 @@ pollution = @ode_def begin
   dy20 = -k25*y20+k24*y19*y1
 end k1  k2  k3  k4  k5  k6  k7  k8  k9  k10  k11  k12  k13  k14  k15  k16  k17  k18  k19  k20  k21  k22  k23  k24  k25
 function make_pollution()
-  comp = let pollution = pollution
+  comp = let pollution = pollution, J = zeros(20, 20), JP = zeros(20, 25), tmpdu = zeros(20,25), tmpu = zeros(20,25)
     function comp(du, u, p, t)
-      p, J, JP, tmpdu, tmpu = p
       tmpu  .= @view( u[:, 2:26])
       pollution(@view(du[:, 1]), u, p, t)
       pollution.jac(J,u,p,t)

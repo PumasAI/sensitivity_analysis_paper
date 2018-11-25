@@ -115,11 +115,11 @@ end
 using CSV, DataFrames
 let
   forward_methods = ["Compile-time CSA", "DSA", "CSA user-Jacobian", "AD-Jacobian", "AD-Jv seeding", "Numerical Differentiation"]
-  forward_timeings = DataFrame(methods=forward_methods, LV=forward_lv, Bruss=forward_bruss, Pollution=forward_pollution, PKPD=forward_pkpd)
+  forward_timings = DataFrame(methods=forward_methods, LV=forward_lv, Bruss=forward_bruss, Pollution=forward_pollution, PKPD=forward_pkpd)
   bench_file_path = joinpath(@__DIR__, "..", "forward_timings.csv")
-  display(forward_timeings)
+  display(forward_timings)
   @info "Writing the benchmark results to $bench_file_path"
-  CSV.write(bench_file_path, forward_timeings)
+  CSV.write(bench_file_path, forward_timings)
 end
 
 #=

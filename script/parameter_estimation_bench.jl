@@ -1,44 +1,45 @@
 include("parameter_estimation.jl")
 @elapsed 1+1
-
+using LinearAlgebra
+Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
 DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
-forward_param_lv = let
+forward_param_lv, adjoint_param_lv = let
   include("lotka-volterra.jl")
   @info "Running Lotka-Volterra"
   u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
-  forward_benchmark(lvdf, lvcom_df, lvdf_with_jacobian.jac,
+  param_benchmark(lvdf, lvcom_df, lvdf_with_jacobian.jac,
                     u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=100), 0.6.*p,
                     iter=10, dropfirst=true)
 end
 
-forward_param_bruss = let
+forward_param_bruss, adjoint_param_bruss = let
   include("brusselator.jl")
   @info "Running Brusselator"
-  n = 2
-  tspan = (0., 1.)
+  n = 3
+  tspan = (0., 5.)
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
-  forward_benchmark(bfun, brusselator_comp.f, brusselator_jac,
-                    b_u0, brusselator_comp.u0, tspan, b_p, range(tspan[1], stop=tspan[end], length=10), 0.9.*b_p,
+  param_benchmark(bfun, brusselator_comp.f, brusselator_jac,
+                    b_u0, brusselator_comp.u0, tspan, b_p, range(tspan[1], stop=tspan[end], length=20), 0.9.*b_p,
                     alg=Rodas5(autodiff=false), verbose=true)
 end
 
-forward_param_pollution = let
+forward_param_pollution, adjoint_param_pollution = let
   include("pollution.jl")
   @info "Running pollution"
   pcomp, pu0, pp, pcompu0 = make_pollution()
   ptspan = (0., 5.)
-  forward_benchmark(pollution.f, pcomp, pollution.jac,
+  param_benchmark(pollution.f, pcomp, pollution.jac,
                     pu0, pcompu0, ptspan, pp, range(ptspan[1], stop=ptspan[end], length=10), 0.9.*pp,
                     alg=Rodas5(autodiff=false))
 end
 
-forward_param_pkpd = let
+forward_param_pkpd, adjoint_param_pkpd = let
   include("pkpd.jl")
   @info "Running the PKPD"
-  forward_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
+  param_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
                     pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, range(pkpdtspan[1], stop=pkpdtspan[end], length=30),
                     0.9.*pkpdp, callbak=pkpdcb, reltol=1e-7, abstol=1e-5)
 end
@@ -46,11 +47,22 @@ end
 
 using CSV, DataFrames
 let
-  forward_param_methods = ["Compile-time CSA", "DSA", "CSA user-Jacobian", "CSA AD-Jacobian",
+  forward_methods = ["Compile-time CSA", "DSA", "CSA user-Jacobian", "CSA AD-Jacobian",
                            "CSA AD-Jv seeding", "Numerical Differentiation"]
-  forward_param_timeings = DataFrame(methods=forward_param_methods, LV=forward_param_lv)
-  bench_file_path = joinpath(@__DIR__, "..", "forward_param_timings.csv")
-  display(forward_param_timeings)
-  @info "Writing the benchmark results to $bench_file_path"
-  CSV.write(bench_file_path, forward_param_timeings)
+  adjoint_methods = ["Forward-Mode DSAAD", "Reverse-Mode DSAAD", "CASA User-Jacobian",
+                     "CASA AD-Jacobian", "CASA AD-Jv seeding", "Numerical Differentiation"]
+  forward_param_timings = DataFrame(methods=forward_methods, LV=forward_param_lv,
+                                    Bruss=forward_param_bruss, Pollution=forward_param_pollution,
+                                    PKPD=forward_param_pkpd)
+  adjoint_param_timings = DataFrame(methods=adjoint_methods, LV=adjoint_param_lv,
+                                    Bruss=adjoint_param_bruss, Pollution=adjoint_param_pollution,
+                                    PKPD=adjoint_param_pkpd)
+  f_bench_file_path = joinpath(@__DIR__, "..", "forward_param_timings.csv")
+  a_bench_file_path = joinpath(@__DIR__, "..", "adjoint_param_timings.csv")
+  display(forward_param_timings)
+  display(adjoint_param_timings)
+  @info "Writing the benchmark results to $f_bench_file_path"
+  CSV.write(f_bench_file_path, forward_param_timings)
+  @info "Writing the benchmark results to $a_bench_file_path"
+  CSV.write(a_bench_file_path, adjoint_param_timings)
 end

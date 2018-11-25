@@ -136,10 +136,10 @@ using CSV, DataFrames
 let
   adjoint_methods = ["Forward-Mode DSAAD", "Reverse-Mode DSAAD", "CASA User-Jacobian",
                      "CASA AD-Jacobian", "CASA AD-Jv seeding", "Numerical Differentiation"]
-  adjoint_timeings = DataFrame(methods=adjoint_methods, LV=adjoint_lv, Bruss=adjoint_bruss,
+  adjoint_timings = DataFrame(methods=adjoint_methods, LV=adjoint_lv, Bruss=adjoint_bruss,
                                Pollution=adjoint_pollution, PKPD=adjoint_pkpd)
   bench_file_path = joinpath(@__DIR__, "..", "adjoint_timings.csv")
-  display(adjoint_timeings)
+  display(adjoint_timings)
   @info "Writing the benchmark results to $bench_file_path"
-  CSV.write(bench_file_path, adjoint_timeings)
+  CSV.write(bench_file_path, adjoint_timings)
 end

@@ -11,7 +11,7 @@ forward_param_lv, adjoint_param_lv = let
   @info "Running Lotka-Volterra"
   u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
   param_benchmark(lvdf, lvcom_df, lvdf_with_jacobian.jac,
-                    u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=100), 0.6.*p,
+                    u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=100), 0.8.*p,
                     iter=10, dropfirst=true)
 end
 

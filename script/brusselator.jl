@@ -82,7 +82,7 @@ function makebrusselator(N=8)
         B = @view p[ii1+1:ii2]
         α = @view p[ii2+1:ii3]
         II = LinearIndices((N, N, 2))
-        vec(cat(kernel_u_oop!.(Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t),
+        Flux.Tracker.collect(cat(kernel_u_oop!.(Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t),
             kernel_v_oop!.(Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t),
             dims=3))
       end
@@ -156,8 +156,8 @@ function makebrusselator(N=8)
       J21 = diagm(0=>@.(A-2u*v))
       J12 = diagm(0=>@.(u^2))
       J22 += diagm(0=>@.(-u^2))
-      [J11 J12
-       J21 J22]
+      Flux.Tracker.collect([J11 J12
+                            J21 J22])
     end
   end
   Jmat = zeros(2N*N, 2N*N)

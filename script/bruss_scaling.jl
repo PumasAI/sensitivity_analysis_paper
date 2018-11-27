@@ -12,13 +12,13 @@ DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
 DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
-bt = 0:0.1:10
+bt = 0:0.1:1
 tspan = (-0.01, 1.01)
 forwarddiffn = 2:10
 reversediffn = 2:6
 numdiffn = 2:10
 csan = 2:10
-csaseedn = 2:10
+csaseedn = vcat(2:10, 15:5:25)
 
 
 forwarddiff = map(forwarddiffn) do n

@@ -1,8 +1,8 @@
 include("sensitivity.jl")
 include("brusselator.jl")
 
-using Plot
-pgfplots()
+using Plots
+gr()
 
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools
 using LinearAlgebra

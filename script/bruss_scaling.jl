@@ -20,31 +20,35 @@ numdiffn = 2:10
 csan = vcat(2:10,15:5:25)
 csaseedn = vcat(2:10, 15:5:25)
 
-
+println("Forward Diff")
 forwarddiff = map(forwarddiffn) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false)
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false)
   @show n,t
 end
+println("Reverse Diff")
 reversediff = map(reversediffn) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false)
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false)
   @show n,t
 end
+println("Num Diff")
 numdiff = map(numdiffn) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(DiffEqDiffTools.finite_difference_gradient), save_everystep=false)
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(DiffEqDiffTools.finite_difference_gradient), save_everystep=false)
   @show n,t
 end
+println("CSA")
 csa = map(csan) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   @elapsed diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false))
   t = @elapsed diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false))
   @show n,t
 end
+println("CSA Seed")
 csaseed = map(csaseedn) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   @elapsed diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true))

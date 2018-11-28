@@ -14,11 +14,11 @@ DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 
 bt = 0:0.1:1
 tspan = (-0.01, 1.01)
-forwarddiffn = vcat(2:10,15:5:20)
-reversediffn = vcat(2:10,15)
-numdiffn = 2:10
-csan = vcat(2:10,15:5:25)
-csaseedn = vcat(2:10, 15:5:25)
+forwarddiffn = vcat(2:10,12,15)
+reversediffn = 2:10
+numdiffn = vcat(2:10,12)
+csan = vcat(2:10,12,15:5:20)
+csaseedn = vcat(2:10,12,15:5:20)
 
 println("Forward Diff")
 forwarddiff = map(forwarddiffn) do n

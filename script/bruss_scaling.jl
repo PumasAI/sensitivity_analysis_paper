@@ -1,9 +1,6 @@
 include("sensitivity.jl")
 include("brusselator.jl")
 
-using Plots
-gr()
-
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools
 using LinearAlgebra
 using Test
@@ -73,13 +70,3 @@ open("../bruss_scaling_data.txt", "w") do f
   write(f, "csaseedn = $csaseedn \n")
   write(f, "csaseed = $csaseed \n")
 end
-
-plt = plot(title="Brusselator Scaling")
-plot!(plt, forwarddiffn, forwarddiff)
-plot!(plt, reversediffn, reversediff)
-plot!(plt, numdiffn, numdiff)
-plot!(plt, csan, csa)
-plot!(plt, csaseedn, csaseed)
-xaxis!("Dimension")
-yaxis!("Runtime (s)")
-savefig("figure2.pdf")

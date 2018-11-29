@@ -12,27 +12,27 @@ adjoint_lv = let
   @info "Running the Lotka-Volerra model:"
   lvu0 = [1.,1.]; lvtspan = (-0.01, 10.01); lvp = [1.5,1.0,3.0];
   lvt = 0:0.5:10
-  @time lsol1 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()); diffalg=(ForwardDiff.gradient), abstol=1e-5,reltol=1e-7);
-  @time lsol2 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()); diffalg=(ReverseDiff.gradient), abstol=1e-5,reltol=1e-7);
-  @time lsol3 = diffeq_sen_l2(lvdf_with_jacobian, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7);
-  @time lsol4 = diffeq_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7;
+  @time lsol1 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()); diffalg=(ForwardDiff.gradient), abstol=1e-5,reltol=1e-7);
+  @time lsol2 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()); diffalg=(ReverseDiff.gradient), abstol=1e-5,reltol=1e-7);
+  @time lsol3 = diffeq_sen_l2(lvdf_with_jacobian, lvu0, lvtspan, lvp, lvt, (Tsit5()), abstol=1e-5,reltol=1e-7);
+  @time lsol4 = diffeq_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()), abstol=1e-5,reltol=1e-7;
                                sensalg=(SensitivityAlg(autojacvec=false)));
-  @time lsol5 = diffeq_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7;
+  @time lsol5 = diffeq_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()), abstol=1e-5,reltol=1e-7;
                                sensalg=(SensitivityAlg(autojacvec=true))); # with seeding
-  @time lsol6 = numerical_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Vern9()), abstol=1e-5,reltol=1e-7);
+  @time lsol6 = numerical_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()), abstol=1e-5,reltol=1e-7);
   @test maximum(abs, lsol1 .- lsol2)/maximum(abs,  lsol1) < 0.2
   @test maximum(abs, lsol1 .- lsol3')/maximum(abs, lsol1) < 0.2
   @test maximum(abs, lsol1 .- lsol4')/maximum(abs, lsol1) < 0.2
   @test maximum(abs, lsol1 .- lsol5')/maximum(abs, lsol1) < 0.2
   @test maximum(abs, lsol1 .- lsol6)/maximum(abs, lsol1) < 0.2
-  t1 = @belapsed auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ForwardDiff.gradient));
-  t2 = @belapsed auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()); diffalg=$(ReverseDiff.gradient));
-  t3 = @belapsed diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
-  t4 = @belapsed diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9());
+  t1 = @belapsed auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Tsit5()); diffalg=$(ForwardDiff.gradient));
+  t2 = @belapsed auto_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Tsit5()); diffalg=$(ReverseDiff.gradient));
+  t3 = @belapsed diffeq_sen_l2($lvdf_with_jacobian, $lvu0, $lvtspan, $lvp, $lvt, $(Tsit5()));
+  t4 = @belapsed diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Tsit5());
                                sensalg=$(SensitivityAlg(autojacvec=false)));
-  t5 = @belapsed diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9());
+  t5 = @belapsed diffeq_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Tsit5());
                                sensalg=$(SensitivityAlg(autojacvec=true))); # with seeding
-  t6 = @belapsed numerical_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Vern9()));
+  t6 = @belapsed numerical_sen_l2($lvdf, $lvu0, $lvtspan, $lvp, $lvt, $(Tsit5()));
   [t1, t2, t3, t4, t5, t6]
 end
 

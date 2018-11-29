@@ -15,17 +15,17 @@ forward_lv = let
   u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]; lvcom_u0 = [u0...;zeros(6)]
   comprob = ODEProblem(lvcom_df, lvcom_u0, tspan, p)
   @info "  Running compile-time CSA"
-  t1 = @belapsed solve($comprob, $(Vern9()),save_everystep=false)
+  t1 = @belapsed solve($comprob, $(Tsit5()),save_everystep=false)
   @info "  Running DSA"
-  t2 = @belapsed auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
+  t2 = @belapsed auto_sen($lvdf, $u0, $tspan, $p, $(Tsit5()))
   @info "  Running CSA user-Jacobian"
-  t3 = @belapsed diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()))
+  t3 = @belapsed diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Tsit5()))
   @info "  Running AD-Jacobian"
-  t4 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=false))
+  t4 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), sensalg=SensitivityAlg(autojacvec=false))
   @info "  Running AD-Jv seeding"
-  t5 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), sensalg=SensitivityAlg(autojacvec=true))
+  t5 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), sensalg=SensitivityAlg(autojacvec=true))
   @info "  Running numerical differentiation"
-  t6 = @belapsed numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()))
+  t6 = @belapsed numerical_sen($lvdf, $u0, $tspan, $p, $(Tsit5()))
   print('\n')
   [t1, t2, t3, t4, t5, t6]
 end
@@ -89,25 +89,25 @@ end
 forward_pkpd = let
   include("pkpd.jl")
   @info "Running the PKPD model:"
-  sol1 = solve(pkpdcompprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49,save_everystep=false)[end][6:end]
-  sol2 = vec(auto_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49))
-  sol3 = vec(hcat(diffeq_sen(pkpdprob, Vern9(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)...))
+  sol1 = solve(pkpdcompprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49,save_everystep=false)[end][6:end]
+  sol2 = vec(auto_sen(pkpdprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49))
+  sol3 = vec(hcat(diffeq_sen(pkpdprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)...))
   @test sol1 ≈ sol2 atol=1e-6
   @test sol2 ≈ sol3 atol=1e-6
   @info "  Running compile-time CSA"
-  t1 = @belapsed solve($pkpdcompprob, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
+  t1 = @belapsed solve($pkpdcompprob, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
   @info "  Running DSA"
-  t2 = @belapsed auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  t2 = @belapsed auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49);
   @info "  Running CSA user-Jacobian"
-  t3 = @belapsed diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  t3 = @belapsed diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49);
   @info "  Running AD-Jacobian"
-  t4 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
+  t4 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49,
                     sensalg=SensitivityAlg(autojacvec=false));
   @info "  Running AD-Jv seeding"
-  t5 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49,
+  t5 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49,
                          sensalg=SensitivityAlg(autojacvec=true));
   @info "  Running numerical differentiation"
-  t6 = @belapsed numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Vern9()),callback=$pkpdcb,tstops=1:2:49);
+  t6 = @belapsed numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49);
   print('\n')
   [t1, t2, t3, t4, t5, t6]
 end
@@ -135,34 +135,34 @@ end
 # compile time drastically
 
 u0s = @SVector [1.,1.]; sp = @SVector [1.5,1.0,3.0];
-@time auto_sen(f, u0s, tspan, sp, Vern9(), abstol=1e-5,reltol=1e-7)
+@time auto_sen(f, u0s, tspan, sp, Tsit5(), abstol=1e-5,reltol=1e-7)
 # 139.719343 seconds (22.66 M allocations: 1.558 GiB, 0.58% gc time)
-@btime auto_sen($f, $u0s, $tspan, $sp, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime auto_sen($f, $u0s, $tspan, $sp, $(Tsit5()), abstol=1e-5,reltol=1e-7)
 # 135.706 μs (499 allocations: 84.55 KiB)
 =#
 
 #=
-@time numerical_sen(lvdf, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+@time numerical_sen(lvdf, u0, tspan, p, Tsit5(), abstol=1e-5,reltol=1e-7)
 # 3.401622 seconds (7.42 M allocations: 387.500 MiB, 6.50% gc time)
-@time auto_sen(lvdf, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+@time auto_sen(lvdf, u0, tspan, p, Tsit5(), abstol=1e-5,reltol=1e-7)
 # 13.564837 seconds (43.31 M allocations: 2.326 GiB, 9.15% gc time)
-@time diffeq_sen(lvdf, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+@time diffeq_sen(lvdf, u0, tspan, p, Tsit5(), abstol=1e-5,reltol=1e-7)
 # 5.712511 seconds (16.38 M allocations: 931.242 MiB, 9.13% gc time)
 # with seeding 10.179159 seconds (32.43 M allocations: 1.730 GiB, 9.75% gc time)
-@time diffeq_sen(lvdf_with_jacobian, u0, tspan, p, Vern9(), abstol=1e-5,reltol=1e-7)
+@time diffeq_sen(lvdf_with_jacobian, u0, tspan, p, Tsit5(), abstol=1e-5,reltol=1e-7)
 # 2.679172 seconds (6.21 M allocations: 320.881 MiB, 5.36% gc time)
-@time solve(comprob, Vern9(),abstol=1e-5,reltol=1e-7,save_everystep=false)
+@time solve(comprob, Tsit5(),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 3.484515 seconds (8.10 M allocations: 417.261 MiB, 7.50% gc time)
 
-@btime numerical_sen($lvdf, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime numerical_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), abstol=1e-5,reltol=1e-7)
 # 534.718 μs (2614 allocations: 222.88 KiB)
-@btime auto_sen($lvdf, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime auto_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), abstol=1e-5,reltol=1e-7)
 # 99.404 μs (485 allocations: 57.11 KiB)
-@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), abstol=1e-5,reltol=1e-7)
 # 308.289 μs (8137 allocations: 391.78 KiB)
 # with seeding 268.012 μs (8310 allocations: 406.86 KiB)
-@btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Vern9()), abstol=1e-5,reltol=1e-7)
+@btime diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Tsit5()), abstol=1e-5,reltol=1e-7)
 # 263.562 μs (8084 allocations: 389.08 KiB)
-@btime solve($comprob, $(Vern9()),abstol=1e-5,reltol=1e-7,save_everystep=false)
+@btime solve($comprob, $(Tsit5()),abstol=1e-5,reltol=1e-7,save_everystep=false)
 # 36.517 μs (111 allocations: 14.67 KiB)
 =#

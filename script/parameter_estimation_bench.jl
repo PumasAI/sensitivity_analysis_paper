@@ -12,7 +12,7 @@ forward_param_lv, adjoint_param_lv = let
   u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
   param_benchmark(lvdf, lvcom_df, lvdf_with_jacobian.jac,
                     u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=100), 0.8.*p,
-                    iter=10, dropfirst=true)
+                    iter=10, dropfirst=true, verbose=true)
 end
 
 forward_param_bruss, adjoint_param_bruss = let
@@ -39,9 +39,10 @@ end
 forward_param_pkpd, adjoint_param_pkpd = let
   include("pkpd.jl")
   @info "Running the PKPD"
+  t = 1.: 49
   param_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
-                    pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, range(pkpdtspan[1], stop=pkpdtspan[end], length=30),
-                    0.9.*pkpdp, callbak=pkpdcb, reltol=1e-7, abstol=1e-5)
+                    pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, t,
+                    0.9.*pkpdp, tstops=t, callback=pkpdcb, reltol=1e-7, abstol=1e-7, iter=1, verbose=true)
 end
 
 

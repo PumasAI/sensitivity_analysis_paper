@@ -92,8 +92,8 @@ forward_pkpd = let
   sol1 = solve(pkpdcompprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49,save_everystep=false)[end][6:end]
   sol2 = vec(auto_sen(pkpdprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49))
   sol3 = vec(hcat(diffeq_sen(pkpdprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=1:2:49)...))
-  @test sol1 ≈ sol2 atol=1e-6
-  @test sol2 ≈ sol3 atol=1e-6
+  @test sol1 ≈ sol2 atol=1e-3
+  @test sol2 ≈ sol3 atol=1e-3
   @info "  Running compile-time CSA"
   t1 = @belapsed solve($pkpdcompprob, $(Tsit5()),callback=$pkpdcb,tstops=1:2:49,save_everystep=false);
   @info "  Running DSA"

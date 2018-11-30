@@ -42,7 +42,7 @@ adjoint_bruss = let
   bt = 0:0.1:10
   tspan = (-0.01, 10.01)
   n = 5
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  bfun, bfun_oop, b_u0, b_p, brusselator_jac, brusselator_jac_oop, brusselator_comp = makebrusselator(n)
   @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false, reltol=1e-7, abstol=1e-5);
   @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false);
   @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, reltol=1e-7, abstol=1e-5);

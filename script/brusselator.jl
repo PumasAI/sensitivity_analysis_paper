@@ -34,6 +34,28 @@ function makebrusselator(N=8)
       A[II[i,j,1]]*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
     end
   end
+  kernel_u_oop! = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator)
+    @inline function (u, A, B, α, II, I, t)
+      i, j = Tuple(I)
+      x = xyd[I[1]]
+      y = xyd[I[2]]
+      ip1 = limit(i+1, N); im1 = limit(i-1, N)
+      jp1 = limit(j+1, N); jm1 = limit(j-1, N)
+      α[II[i,j,1]]*(u[II[im1,j,1]] + u[II[ip1,j,1]] + u[II[i,jp1,1]] + u[II[i,jm1,1]] - 4u[II[i,j,1]])/dx^2 +
+      B[II[i,j,1]] + u[II[i,j,1]]^2*u[II[i,j,2]] - (A[II[i,j,1]] + 1)*u[II[i,j,1]] + brusselator_f(x, y, t)
+    end
+  end
+  kernel_v_oop! = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator)
+    @inline function (u, A, B, α, II, I, t)
+      i, j = Tuple(I)
+      ip1 = limit(i+1, N)
+      im1 = limit(i-1, N)
+      jp1 = limit(j+1, N)
+      jm1 = limit(j-1, N)
+      α[II[i,j,2]]*(u[II[im1,j,2]] + u[II[ip1,j,2]] + u[II[i,jp1,2]] + u[II[i,jm1,2]] - 4u[II[i,j,2]])/dx^2 +
+      A[II[i,j,1]]*u[II[i,j,1]] - u[II[i,j,1]]^2*u[II[i,j,2]]
+    end
+  end
   brusselator_2d = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator)
     function (du, u, p, t)
       @inbounds begin
@@ -47,6 +69,22 @@ function makebrusselator(N=8)
         kernel_u!.(Ref(du), Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t)
         kernel_v!.(Ref(du), Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t)
         return nothing
+      end
+    end
+  end
+  brusselator_2d_oop = let N=N, xyd=xyd_brusselator, dx=step(xyd_brusselator)
+    function (u, p, t)
+      @inbounds begin
+        ii1 = N^2
+        ii2 = ii1+N^2
+        ii3 = ii2+2(N^2)
+        A = @view p[1:ii1]
+        B = @view p[ii1+1:ii2]
+        α = @view p[ii2+1:ii3]
+        II = LinearIndices((N, N, 2))
+        Flux.Tracker.collect(vec(cat(kernel_u_oop!.(Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t),
+            kernel_v_oop!.(Ref(u), Ref(A), Ref(B), Ref(α), Ref(II), CartesianIndices((N, N)), t),
+            dims=3)))
       end
     end
   end
@@ -69,7 +107,7 @@ function makebrusselator(N=8)
   Ie = Matrix{Float64}(I, N, N)
   # A + df/du
   Op = kron(Ie, T) + kron(T, Ie)
-  brusselator_jac = let N=N
+  brusselator_jac = let N=N, Op=Op
     (J,a,p,t) -> begin
       ii1 = N^2
       ii2 = ii1+N^2
@@ -96,6 +134,30 @@ function makebrusselator(N=8)
       J3[diagind(J3)] .= @. u^2
       J4[diagind(J4)] .+= @. -u^2
       nothing
+    end
+  end
+  brusselator_jac_oop = let N=N, Op=Op
+    (a,p,t) -> begin
+      ii1 = N^2
+      ii2 = ii1+N^2
+      ii3 = ii2+2(N^2)
+      A = @view p[1:ii1]
+      B = @view p[ii1+1:ii2]
+      α = @view p[ii2+1:ii3]
+      u = @view a[1:end÷2]
+      v = @view a[end÷2+1:end]
+      N2 = length(a)÷2
+      α1 = @view α[1:end÷2]
+      α2 = @view α[end÷2+1:end]
+
+      J11 = α1.*Op
+      J22 = α2.*Op
+      J11 += diagm(0=>@.(2u*v-(A+1)))
+      J21 = diagm(0=>@.(A-2u*v))
+      J12 = diagm(0=>@.(u^2))
+      J22 += diagm(0=>@.(-u^2))
+      Flux.Tracker.collect([J11 J12
+                            J21 J22])
     end
   end
   Jmat = zeros(2N*N, 2N*N)
@@ -153,5 +215,5 @@ function makebrusselator(N=8)
   end
   u0 = init_brusselator_2d(xyd_brusselator)
   p = [fill(3.4,N^2); fill(1.,N^2); fill(10.,2*N^2)]
-  brusselator_2d, u0, p, brusselator_jac, ODEProblem(brusselator_comp, copy([u0;zeros((N^2*2)*(N^2*4))]), (0.,10.), p)
+  brusselator_2d, brusselator_2d_oop, u0, p, brusselator_jac, brusselator_jac_oop, ODEProblem(brusselator_comp, copy([u0;zeros((N^2*2)*(N^2*4))]), (0.,10.), p)
 end

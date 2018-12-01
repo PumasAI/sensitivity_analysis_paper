@@ -25,8 +25,7 @@ function diffeq_sen_l2(df, u0, tspan, p, t, alg=Tsit5();
                        abstol=1e-5, reltol=1e-7, iabstol=abstol, ireltol=reltol,
                        sensalg=SensitivityAlg(), kwargs...)
   prob = ODEProblem(df,u0,tspan,p)
-  saveat = tspan[1] != t[1] && tspan[end] != t[end] ? vcat(tspan[1],t,tspan[end]) : t
-  sol = solve(prob, alg, abstol=abstol, reltol=reltol, saveat=saveat; kwargs...)
+  sol = solve(prob, alg, abstol=abstol, reltol=reltol; kwargs...)
   dg(out,u,p,t,i) = (out.=1.0.-u)
   adjoint_sensitivities(sol,alg,dg,t,abstol=abstol,
                         reltol=reltol,iabstol=abstol,ireltol=reltol,sensealg=sensalg)

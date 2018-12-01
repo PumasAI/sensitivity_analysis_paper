@@ -162,7 +162,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a3 += @elapsed (s=optimize(
           cost,
           (grad,_p)->adjoint_diffeq_grad(
-            grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; saveat=t, alg=alg, save_everystep=true,
+            grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; alg=alg, save_everystep=true,
             sensalg=SensitivityAlg(autojacvec=false), kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -171,7 +171,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a4 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diffeq_grad(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,
+            grad,p,fun,u0,tspan,data,t; alg=alg, save_everystep=true,
             sensalg=SensitivityAlg(autojacvec=false), kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -180,7 +180,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a5 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diffeq_grad(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,
+            grad,p,fun,u0,tspan,data,t; alg=alg, save_everystep=true,
             sensalg=SensitivityAlg(autojacvec=true), kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end

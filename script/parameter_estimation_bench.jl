@@ -12,7 +12,7 @@ forward_param_lv, adjoint_param_lv = let
   u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
   param_benchmark(lvdf, lvcom_df, lvdf_with_jacobian.jac,
                     u0, [u0; zeros(6)], tspan, p, range(0, stop=10, length=100), 0.8.*p,
-                    iter=10, dropfirst=true, verbose=true)
+                    iter=10, dropfirst=true)
 end
 
 forward_param_bruss, adjoint_param_bruss = let
@@ -23,7 +23,7 @@ forward_param_bruss, adjoint_param_bruss = let
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   param_benchmark(bfun, brusselator_comp.f, brusselator_jac,
                     b_u0, brusselator_comp.u0, tspan, b_p, range(tspan[1]+0.01, stop=tspan[end]-0.01, length=20), 0.9.*b_p,
-                    alg=Rodas5(autodiff=false), verbose=true)
+                    alg=Rodas5(autodiff=false))
 end
 
 forward_param_pollution, adjoint_param_pollution = let
@@ -33,7 +33,7 @@ forward_param_pollution, adjoint_param_pollution = let
   ptspan = (0., 5.)
   param_benchmark(pollution.f, pcomp, pollution.jac,
                     pu0, pcompu0, ptspan, pp, range(ptspan[1]+0.01, stop=ptspan[end]-0.01, length=10), 0.9.*pp,
-                    alg=Rodas5(autodiff=false), verbose=true)
+                    alg=Rodas5(autodiff=false))
 end
 
 forward_param_pkpd, adjoint_param_pkpd = let

@@ -45,7 +45,7 @@ forward_bruss = let
   @test sol1 ≈ sol2 atol=1e-3
   @test sol2 ≈ hcat(sol3...) atol=1e-3
   @test sol2 ≈ hcat(sol4...) atol=1e-3
-  @test sol2 ≈ reshape(sol5[2][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
+  @test sol2 ≈ reshape(sol5[end][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
 
   # High tolerance to benchmark
   @info "  Running compile-time CSA"

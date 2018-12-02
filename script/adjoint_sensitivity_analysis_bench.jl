@@ -44,7 +44,7 @@ adjoint_bruss = let
   n = 5
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), reltol=1e-7, abstol=1e-5);
-  @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false);
+  @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient));
   @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), reltol=1e-7, abstol=1e-5);
   @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false), reltol=1e-7, abstol=1e-5);
   @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true), reltol=1e-7, abstol=1e-5);
@@ -54,14 +54,14 @@ adjoint_bruss = let
   @test maximum(abs, bsol3 .- bsol4)/maximum(abs, bsol3) < 1e-2
   @test maximum(abs, bsol3 .- bsol5)/maximum(abs, bsol3) < 1e-2
   @test maximum(abs, bsol1 .- bsol6)/maximum(abs, bsol1) < 2e-2
-  t1 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient), save_everystep=false);
-  t2 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient), save_everystep=false);
-  t3 = @belapsed diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false);
-  t4 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false,
+  t1 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient));
+  t2 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient));
+  t3 = @belapsed diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)));
+  t4 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)),
                                sensalg=SensitivityAlg(autojacvec=false));
-  t5 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), save_everystep=false,
+  t5 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)),
                                sensalg=SensitivityAlg(autojacvec=true));
-  t6 = @belapsed numerical_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), save_everystep=false);
+  t6 = @belapsed numerical_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()));
   [t1, t2, t3, t4, t5, t6]
 end
 

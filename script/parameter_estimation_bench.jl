@@ -22,7 +22,7 @@ forward_param_bruss, adjoint_param_bruss = let
   tspan = (0., 5.)
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   param_benchmark(bfun, brusselator_comp.f, brusselator_jac,
-                    b_u0, brusselator_comp.u0, tspan, b_p, range(tspan[1], stop=tspan[end], length=20), 0.9.*b_p,
+                    b_u0, brusselator_comp.u0, tspan, b_p, range(tspan[1]+0.01, stop=tspan[end]-0.01, length=20), 0.9.*b_p,
                     alg=Rodas5(autodiff=false), verbose=true)
 end
 
@@ -32,8 +32,8 @@ forward_param_pollution, adjoint_param_pollution = let
   pcomp, pu0, pp, pcompu0 = make_pollution()
   ptspan = (0., 5.)
   param_benchmark(pollution.f, pcomp, pollution.jac,
-                    pu0, pcompu0, ptspan, pp, range(ptspan[1], stop=ptspan[end], length=10), 0.9.*pp,
-                    alg=Rodas5(autodiff=false))
+                    pu0, pcompu0, ptspan, pp, range(ptspan[1]+0.01, stop=ptspan[end]-0.01, length=10), 0.9.*pp,
+                    alg=Rodas5(autodiff=false), verbose=true)
 end
 
 forward_param_pkpd, adjoint_param_pkpd = let
@@ -45,6 +45,14 @@ forward_param_pkpd, adjoint_param_pkpd = let
                     0.9.*pkpdp, tstops=t, callback=pkpdcb, reltol=1e-7, abstol=1e-7, iter=1, verbose=true)
 end
 
+forward_param_pkpd, adjoint_param_pkpd = let
+  include("pkpd.jl")
+  @info "Running the PKPD"
+  t = 0.:49
+  param_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
+                  pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, t,# callback=pkpdcb, tstops=t,
+                  0.9.*pkpdp, reltol=1e-7, abstol=1e-7, iter=1, iabstol=1e-12, ireltol=1e-12)
+end
 
 using CSV, DataFrames
 let

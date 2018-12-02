@@ -10,7 +10,7 @@ DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
 adjoint_lv = let
   include("lotka-volterra.jl")
   @info "Running the Lotka-Volerra model:"
-  lvu0 = [1.,1.]; lvtspan = (-0.01, 10.01); lvp = [1.5,1.0,3.0];
+  lvu0 = [1.,1.]; lvtspan = (0.0, 10.0); lvp = [1.5,1.0,3.0];
   lvt = 0:0.5:10
   @time lsol1 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()); diffalg=(ForwardDiff.gradient), abstol=1e-5,reltol=1e-7);
   @time lsol2 = auto_sen_l2(lvdf, lvu0, lvtspan, lvp, lvt, (Tsit5()); diffalg=(ReverseDiff.gradient), abstol=1e-5,reltol=1e-7);
@@ -39,16 +39,16 @@ end
 adjoint_bruss = let
   include("brusselator.jl")
   @info "Running the Brusselator model:"
-  bt = 0:0.1:10
-  tspan = (-0.01, 10.01)
+  bt = 0+0.01:0.1:10-0.01
+  tspan = (0., 10.)
   n = 5
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
-  @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), save_everystep=false, reltol=1e-7, abstol=1e-5);
+  @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), reltol=1e-7, abstol=1e-5);
   @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient), save_everystep=false);
-  @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, reltol=1e-7, abstol=1e-5);
-  @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=false), reltol=1e-7, abstol=1e-5);
-  @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), save_everystep=false, sensalg=SensitivityAlg(autojacvec=true), reltol=1e-7, abstol=1e-5);
-  @time bsol6 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), save_everystep=false, reltol=1e-7, abstol=1e-5);
+  @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), reltol=1e-7, abstol=1e-5);
+  @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false), reltol=1e-7, abstol=1e-5);
+  @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true), reltol=1e-7, abstol=1e-5);
+  @time bsol6 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), reltol=1e-7, abstol=1e-5);
   @test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
   @test maximum(abs, bsol1 .- bsol3')/maximum(abs, bsol1) < 4e-2
   @test maximum(abs, bsol3 .- bsol4)/maximum(abs, bsol3) < 1e-2
@@ -69,8 +69,8 @@ adjoint_pollution = let
   include("pollution.jl")
   @info "Running the Pollution model:"
   pcomp, pu0, pp, pcompu0 = make_pollution();
-  ptspan = (-0.01, 60.01)
-  pts = 0:0.5:60
+  ptspan = (0., 60.)
+  pts = 0+0.01:0.5:60-0.01
   @time psol1 = auto_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)), diffalg=(ForwardDiff.gradient));
   @time psol2 = auto_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient));
   @time psol3 = diffeq_sen_l2((ODEFunction(pollution.f, jac=pollution.jac)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)));

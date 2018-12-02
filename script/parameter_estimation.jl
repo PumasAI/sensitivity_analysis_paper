@@ -3,10 +3,10 @@ using Test
 include("sensitivity.jl")
 
 function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
-                           alg=Tsit5(), lower=0.4.*p, upper=1.6.*p, save_everystep=false,
+                           alg=Tsit5(), lower=0.4.*p, upper=1.6.*p,
                            verbose=false, iter=2, dropfirst=true, run=trues(12), kwargs...)
   prob_original = ODEProblem(fun, u0, tspan, p)
-  data = solve(prob_original, alg; saveat=t, save_everystep=save_everystep, kwargs...)
+  data = solve(prob_original, alg; kwargs...)(t)
   t = collect(t)
   function l2loss(sol, data)
     l2loss_ = zero(eltype(data))
@@ -17,7 +17,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
   end
   function costfunc(p,data,df,t,u0)
     tmp_prob = ODEProblem(df, u0, tspan, p)
-    sol = solve(tmp_prob, alg; saveat=t, save_everystep=save_everystep, kwargs...)
+    sol = solve(tmp_prob, alg; kwargs...)(t)
     loss = l2loss(sol,data)
     verbose && @info "L2 Loss: $loss"
     return loss
@@ -47,15 +47,14 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
   end
   function costfunc_gradient_comp(grad,p,comdf,u0,tspan,data,t; kwargs...)
     comprob = ODEProblem(comdf, u0, tspan, p)
-    sol = reshape(vec(solve(comprob, alg; saveat=t, save_everystep=save_everystep, kwargs...)), length(u0), length(t))
+    sol = solve(comprob, alg; kwargs...)(t)
+    sol = reshape(vec(sol), length(u0), length(t))
     nvar = length(data[1])
     l2lossgradient!(grad,sol[1:nvar,:],data,[sol[i*nvar+1:i*nvar+nvar,:] for i in 1:length(p)], length(p))
   end
   # adjoint
   function adjoint_diffeq_grad(grad, p, df, u0, tspan, data, t; alg, sensalg, kwargs...)
     prob = ODEProblem(df, u0, tspan, p)
-    #saveat = tspan[1] != t[1] && tspan[end] != t[end] ? vcat(tspan[1],t,tspan[end]) : t # so that finite diff works
-    #sol = solve(prob, alg; saveat=saveat, save_start=true, save_end=true, kwargs...)
     sol = solve(prob, alg; kwargs...)
     dg = let data=data
       function (out, u, p, t, i)
@@ -70,7 +69,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
   function adjoint_diff_grad(grad, p, df, u0, tspan, data, t; alg, diffalg, kwargs...)
     test_f(p) = begin
       prob = ODEProblem(df,eltype(p).(u0),tspan,p)
-      sol = solve(prob,alg,saveat=t; kwargs...)
+      sol = solve(prob,alg; kwargs...)(t)
       sum(x->norm(x)^2, Broadcast.broadcasted(-, data.u, sol.u))
     end
     _grad = diffalg(test_f, p)
@@ -93,7 +92,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t1 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_comp(
-             grad,p,compfun,compu0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+             grad,p,compfun,compu0,tspan,data,t; alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[2]
@@ -101,7 +100,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t2 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_autosen(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+            grad,p,fun,u0,tspan,data,t; alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[3]
@@ -109,7 +108,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t3 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_diffeq(
-            grad,p,ODEFunction(fun, jac=jac),u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+            grad,p,ODEFunction(fun, jac=jac),u0,tspan,data,t; alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[4]
@@ -118,7 +117,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
           cost,
           (grad,p)->costfunc_gradient_diffeq(
             grad,p,fun,u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=false),
-            saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+            alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[5]
@@ -127,7 +126,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
           cost,
           (grad,p)->costfunc_gradient_diffeq(
             grad,p,fun,u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=true),
-            saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+            alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[6]
@@ -135,7 +134,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t6 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_num(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,kwargs...),
+            grad,p,fun,u0,tspan,data,t; alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s))
       end
       @info " Adjoint SA"
@@ -144,7 +143,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a1 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diff_grad(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,
+            grad,p,fun,u0,tspan,data,t; alg=alg,
             diffalg=ForwardDiff.gradient, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -153,7 +152,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a2 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diff_grad(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,
+            grad,p,fun,u0,tspan,data,t; alg=alg,
             diffalg=ReverseDiff.gradient, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -162,7 +161,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a3 += @elapsed (s=optimize(
           cost,
           (grad,_p)->adjoint_diffeq_grad(
-            grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; alg=alg, save_everystep=true,
+            grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; alg=alg,
             sensalg=SensitivityAlg(autojacvec=false), kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -171,7 +170,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a4 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diffeq_grad(
-            grad,p,fun,u0,tspan,data,t; alg=alg, save_everystep=true,
+            grad,p,fun,u0,tspan,data,t; alg=alg,
             sensalg=SensitivityAlg(autojacvec=false), kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -180,7 +179,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a5 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diffeq_grad(
-            grad,p,fun,u0,tspan,data,t; alg=alg, save_everystep=true,
+            grad,p,fun,u0,tspan,data,t; alg=alg,
             sensalg=SensitivityAlg(autojacvec=true), kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -189,7 +188,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         a6 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diff_grad(
-            grad,p,fun,u0,tspan,data,t; saveat=t, alg=alg, save_everystep=save_everystep,
+            grad,p,fun,u0,tspan,data,t; alg=alg,
             diffalg=DiffEqDiffTools.finite_difference_gradient, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end

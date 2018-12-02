@@ -7,16 +7,16 @@ function auto_sen(prob::DiffEqBase.DEProblem, args...; kwargs...)
   auto_sen(prob.f, prob.u0, prob.tspan, prob.p, args...; kwargs...)
 end
 
-function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); save_everystep=false, sensalg=SensitivityAlg(), kwargs...)
+function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); sensalg=SensitivityAlg(), kwargs...)
   prob = ODELocalSensitivityProblem(f,u0,tspan,p,sensalg)
-  sol = solve(prob,alg; save_everystep=save_everystep, kwargs...)
+  sol = solve(prob,alg; save_everystep=false, kwargs...)
   extract_local_sensitivities(sol, length(sol))[2]
 end
 
-function auto_sen(f, u0, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
+function auto_sen(f, u0, tspan, p, alg=Tsit5(); kwargs...)
   test_f(p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    solve(prob,alg; save_everystep=save_everystep, kwargs...)[end]
+    solve(prob,alg; save_everystep=false, kwargs...)[end]
   end
   ForwardDiff.jacobian(test_f, p)
 end
@@ -34,7 +34,7 @@ end
 function auto_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); diffalg=ReverseDiff.gradient, kwargs...)
   test_f(p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    sol = solve(prob,alg,saveat=t; kwargs...)
+    sol = solve(prob,alg; kwargs...)(t)
     sum(sol.u) do x
       sum(z->(1-z)^2/2, x)
     end
@@ -42,10 +42,10 @@ function auto_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); diffalg=ReverseDiff.gradie
   diffalg(test_f, p)
 end
 
-function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); save_everystep=false, kwargs...)
+function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); kwargs...)
   test_f(p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    sol = solve(prob,alg,saveat=t; kwargs...)
+    sol = solve(prob,alg; kwargs...)(t)
     sum(sol.u) do x
       sum(z->(1-z)^2/2, x)
     end
@@ -53,16 +53,16 @@ function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); save_everystep=false,
   DiffEqDiffTools.finite_difference_gradient(test_f, p, Val{:central})
 end
 
-function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=false, sensalg=SensitivityAlg(), kwargs...)
+function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), sensalg=SensitivityAlg(), kwargs...)
   prob = ODELocalSensitivityProblem(f,u0,tspan,p)
-  sol = solve(prob,alg;saveat=t,save_everystep=false,sensealg=sensalg,kwargs...)
+  sol = solve(prob,alg;sensealg=sensalg,saveat=t,kwargs...)
   extract_local_sensitivities(sol)
 end
 
-function auto_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=false, kwargs...)
+function auto_sen_full(f, u0, tspan, p, t; alg=Tsit5(), kwargs...)
   test_f(p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    vec(solve(prob,alg;saveat=t,save_everystep=save_everystep,kwargs...))
+    vec(solve(prob,alg;kwargs...)(t))
   end
   result = DiffResults.DiffResult(similar(p, length(t)*length(u0)), similar(p, length(t)*length(u0), length(p)))
   result = ForwardDiff.jacobian!(result, test_f, p)
@@ -71,11 +71,11 @@ function auto_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=false, kw
   reshape(sol',length(u0),length(t)), [Array(reshape(@view(sens[:,i])',length(u0),length(t))) for i in 1:length(p)]
 end
 
-function numerical_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=false, kwargs...)
+function numerical_sen_full(f, u0, tspan, p, t; alg=Tsit5(), kwargs...)
   n = length(u0)
   test_f(out,p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    sol = solve(prob,alg; saveat=t,save_everystep=save_everystep, kwargs...)
+    sol = solve(prob,alg; kwargs...)(t)
     out .= vec(sol)
   end
   fxcache = similar(p, length(t)*n)
@@ -87,10 +87,10 @@ function numerical_sen_full(f, u0, tspan, p, t; alg=Tsit5(), save_everystep=fals
   reshape(sol',length(u0),length(t)), [Array(reshape(@view(sens[:,i])',length(u0),length(t))) for i in 1:length(p)]
 end
 
-function numerical_sen(f,u0, tspan, p, alg=Tsit5(); save_everystep=false, kwargs...)
+function numerical_sen(f,u0, tspan, p, alg=Tsit5(); kwargs...)
   test_f(out,p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    copyto!(out, solve(prob,alg; save_everystep=save_everystep, kwargs...)[end])
+    copyto!(out, solve(prob,alg; kwargs...)[end])
   end
   DiffEqDiffTools.finite_difference_jacobian!(Matrix{Float64}(undef,length(u0),length(p)),test_f, p, DiffEqDiffTools.JacobianCache(p,Array{Float64}(undef,length(u0))))
 end

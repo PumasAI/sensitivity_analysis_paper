@@ -42,7 +42,7 @@ forward_param_pkpd, adjoint_param_pkpd = let
   t = 0.:49
   param_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
                   pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, t, callback=pkpdcb, tstops=t,
-                  0.9.*pkpdp, reltol=1e-7, abstol=1e-7, iter=1, iabstol=1e-12, ireltol=1e-12)
+                  0.9.*pkpdp, reltol=1e-7, abstol=1e-7, iter=2, iabstol=1e-12, ireltol=1e-12)
 end
 
 using CSV, DataFrames

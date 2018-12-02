@@ -62,7 +62,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         nothing
       end
     end
-    _grad = adjoint_sensitivities(sol, alg, dg, t; sensealg=sensalg, kwargs...)
+    _grad = adjoint_sensitivities(sol, alg, dg, t; sensealg=sensalg, kwargs...,callback=CallbackSet())
     copyto!(grad, _grad)
     nothing
   end

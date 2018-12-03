@@ -39,7 +39,7 @@ end
 forward_param_pkpd, adjoint_param_pkpd = let
   include("pkpd.jl")
   @info "Running the PKPD"
-  t = 0.:49
+  t = 0.:24:240
   param_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
                   pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, t, callback=pkpdcb, tstops=t,
                   0.9.*pkpdp, reltol=1e-7, abstol=1e-7, iter=2, iabstol=1e-12, ireltol=1e-12)

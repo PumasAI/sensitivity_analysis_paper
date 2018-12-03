@@ -6,19 +6,34 @@ pkpdf = @ode_def begin
   dPeriph  =  Q*(Cent/Vc)  - Q*(Periph/Vp)
   dPeriph2 =  Q2*(Cent/Vc)  - Q2*(Periph2/Vp2)
   dResp   =  Kin*(1-(IMAX*(Cent/Vc)^γ/(IC50^γ+(Cent/Vc)^γ)))  - Kout*Resp
-end Ka1 CL Vmax Km Vc Q Q2 Vp Vp2 Kin Kout IC50 IMAX γ
+end Ka1 CL Vc Q Vp Kin Kout IC50 IMAX γ Vmax Km Q2 Vp2
 
-pkpdp = 0.2.*ones(14)
+pkpdp = [
+        1, # Ka1  Absorption rate constant 1 (1/time)
+        1, # CL   Clearance (volume/time)
+        20, # Vc   Central volume (volume)
+        2, # Q    Inter-compartmental clearance (volume/time)
+        10, # Vp   Peripheral volume of distribution (volume)
+        10, # Kin  Response in rate constant (1/time)
+        2, # Kout Response out rate constant (1/time)
+        2, # IC50 Concentration for 50% of max inhibition (mass/volume)
+        1, # IMAX Maximum inhibition
+        1, # γ    Emax model sigmoidicity
+        0, # Vmax Maximum reaction velocity (mass/time)
+        2,  # Km   Michaelis constant (mass/volume)
+        0.5, # Q2    Inter-compartmental clearance2 (volume/time)
+        100 # Vp2   Peripheral2 volume of distribution (volume)
+        ]
 
-pkpdu0 = [0.1,0.1,0.1,0.1,0.1]
+pkpdu0 = [100, 0, 0, 0, 5.]
 pkpdcondition = function (u,t,integrator)
-  t in 1:2:49
+  t in 0:24:240
 end
 pkpdaffect! = function (integrator)
-  integrator.u[1] += 0.1
+  integrator.u[1] += 100
 end
 pkpdcb = DiscreteCallback(pkpdcondition, pkpdaffect!, save_positions=(false, true))
-pkpdtspan = (0.,50.)
+pkpdtspan = (0.,240.)
 pkpdprob = ODEProblem(pkpdf.f, pkpdu0, pkpdtspan, pkpdp)
 
 pkpdfcomp = let pkpdf=pkpdf, J=zeros(5,5), JP=zeros(5,14), tmpdu=zeros(5,14), tmpu=zeros(5,14)
@@ -33,5 +48,5 @@ pkpdfcomp = let pkpdf=pkpdf, J=zeros(5,5), JP=zeros(5,14), tmpdu=zeros(5,14), tm
   end
 end
 pkpdcompprob = ODEProblem(pkpdfcomp, [pkpdprob.u0;zeros(5*14)], pkpdprob.tspan, pkpdprob.p)
-#sol = solve(pkpdprob, Tsit5(), tstops=1:2:49, callback=pkpdcb)
+#sol = solve(pkpdprob, Tsit5(), tstops=0:24:240, callback=pkpdcb)
 #plot(sol)

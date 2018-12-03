@@ -100,34 +100,34 @@ adjoint_pkpd = let
   @info "Running the PKPD model:"
   pts = 0:0.5:50
   # need to use lower tolerances to avoid running into the complex domain because of exponentiation
-  pkpdsol1 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()), callback=pkpdcb, tstops=1:2:49,
+  pkpdsol1 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()), callback=pkpdcb, tstops=0:24:240,
                                 diffalg=(ForwardDiff.gradient), reltol=1e-5, abstol=1e-7);
-  pkpdsol2 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()), callback=pkpdcb, tstops=1:2:49,
+  pkpdsol2 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()), callback=pkpdcb, tstops=0:24:240,
                                 diffalg=(ReverseDiff.gradient), reltol=1e-5, abstol=1e-7);
   pkpdsol3 = @time diffeq_sen_l2((ODEFunction(pkpdf.f, jac=pkpdf.jac)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
-                                  callback=pkpdcb, tstops=1:2:49, reltol=1e-5, abstol=1e-7);
+                                  callback=pkpdcb, tstops=0:24:240, reltol=1e-5, abstol=1e-7);
   pkpdsol4 = @time diffeq_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
-                                  sensalg=(SensitivityAlg(autojacvec=false)), callback=pkpdcb, tstops=1:2:49, reltol=1e-5, abstol=1e-7);
+                                  sensalg=(SensitivityAlg(autojacvec=false)), callback=pkpdcb, tstops=0:24:240, reltol=1e-5, abstol=1e-7);
   pkpdsol5 = @time diffeq_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
-                                  sensalg=(SensitivityAlg(autojacvec=true)), callback=pkpdcb, tstops=1:2:49, reltol=1e-5, abstol=1e-7);
+                                  sensalg=(SensitivityAlg(autojacvec=true)), callback=pkpdcb, tstops=0:24:240, reltol=1e-5, abstol=1e-7);
   pkpdsol6 = @time numerical_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()),
-                                     callback=pkpdcb, tstops=1:2:49, reltol=1e-5, abstol=1e-7);
+                                     callback=pkpdcb, tstops=0:24:240, reltol=1e-5, abstol=1e-7);
   @test maximum(abs, pkpdsol1 .- pkpdsol2)/maximum(abs,  pkpdsol1) < 0.2
   @test maximum(abs, pkpdsol1 .- pkpdsol3')/maximum(abs,  pkpdsol1) < 0.2
   @test maximum(abs, pkpdsol1 .- pkpdsol4')/maximum(abs,  pkpdsol1) < 0.2
   @test maximum(abs, pkpdsol1 .- pkpdsol5')/maximum(abs,  pkpdsol1) < 0.2
   @test maximum(abs, pkpdsol1 .- pkpdsol6)/maximum(abs,  pkpdsol1) < 0.2
-  t1 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), callback=pkpdcb, tstops=1:2:49,
+  t1 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), callback=pkpdcb, tstops=0:24:240,
                                 diffalg=$(ForwardDiff.gradient), reltol=1e-5, abstol=1e-7);
-  t2 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), callback=pkpdcb, tstops=1:2:49,
+  t2 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), callback=pkpdcb, tstops=0:24:240,
                                 diffalg=$(ReverseDiff.gradient), reltol=1e-5, abstol=1e-7);
-  t3 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=1:2:49,
+  t3 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=0:24:240,
                                   callback=pkpdcb, reltol=1e-5, abstol=1e-7);
-  t4 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=1:2:49,
+  t4 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=0:24:240,
                                   sensalg=$(SensitivityAlg(autojacvec=false)), callback=pkpdcb, reltol=1e-5, abstol=1e-7);
-  t5 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=1:2:49,
+  t5 = @belapsed diffeq_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=0:24:240,
                                   sensalg=(SensitivityAlg(autojacvec=true)), callback=pkpdcb, reltol=1e-5, abstol=1e-7);
-  t6 = @belapsed numerical_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=1:2:49,
+  t6 = @belapsed numerical_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()), tstops=0:24:240,
                                      callback=pkpdcb, reltol=1e-5, abstol=1e-7);
   [t1, t2, t3, t4, t5, t6]
 end

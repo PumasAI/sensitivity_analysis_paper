@@ -17,7 +17,7 @@ end
 pkpdaffect! = function (integrator)
   integrator.u[1] += 0.1
 end
-pkpdcb = DiscreteCallback(pkpdcondition, pkpdaffect!)
+pkpdcb = DiscreteCallback(pkpdcondition, pkpdaffect!, save_positions=(false, true))
 pkpdtspan = (0.,50.)
 pkpdprob = ODEProblem(pkpdf.f, pkpdu0, pkpdtspan, pkpdp)
 

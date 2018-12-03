@@ -23,9 +23,10 @@ pkpdp = [
         2,  # Km   Michaelis constant (mass/volume)
         0.5, # Q2    Inter-compartmental clearance2 (volume/time)
         100 # Vp2   Peripheral2 volume of distribution (volume)
-        ]
+        ];
 
-pkpdu0 = [100, 0, 0, 0, 5.]
+pkpdu0 = [100, eps(), eps(), eps(), 5.] # exact zero in the initial condition triggers NaN in Jacobian
+#pkpdu0 = ones(5)
 pkpdcondition = function (u,t,integrator)
   t in 0:24:240
 end
@@ -36,17 +37,16 @@ pkpdcb = DiscreteCallback(pkpdcondition, pkpdaffect!, save_positions=(false, tru
 pkpdtspan = (0.,240.)
 pkpdprob = ODEProblem(pkpdf.f, pkpdu0, pkpdtspan, pkpdp)
 
-pkpdfcomp = let pkpdf=pkpdf, J=zeros(5,5), JP=zeros(5,14), tmpdu=zeros(5,14), tmpu=zeros(5,14)
+pkpdfcomp = let pkpdf=pkpdf, J=zeros(5,5), JP=zeros(5,14), tmpdu=zeros(5,14)
   function (du, u, p, t)
-    vec(tmpu)  .= @view(u[6:end])
-    pkpdf(@view(du[1:5]), u, p, t)
-    pkpdf.jac(J,u,p,t)
-    pkpdf.paramjac(JP,u,p,t)
-    mul!(tmpdu, J, tmpu)
-    du[6:end] .= vec(tmpdu) .+ vec(JP)
+    pkpdf.f(@view(du[:, 1]), u, p, t)
+    pkpdf.jac(J, u, p, t)
+    pkpdf.paramjac(JP, u, p, t)
+    mul!(tmpdu, J, @view(u[:, 2:end]))
+    du[:, 2:end] .= tmpdu .+ JP
     nothing
   end
 end
-pkpdcompprob = ODEProblem(pkpdfcomp, [pkpdprob.u0;zeros(5*14)], pkpdprob.tspan, pkpdprob.p)
+pkpdcompprob = ODEProblem(pkpdfcomp, hcat(pkpdprob.u0,zeros(5,14)), pkpdprob.tspan, pkpdprob.p)
 #sol = solve(pkpdprob, Tsit5(), tstops=0:24:240, callback=pkpdcb)
 #plot(sol)

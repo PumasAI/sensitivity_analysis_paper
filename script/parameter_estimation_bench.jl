@@ -39,13 +39,13 @@ end
 forward_param_pkpd, adjoint_param_pkpd = let
   include("pkpd.jl")
   @info "Running the PKPD"
-  t = 0.:24:240
+  t = 0.:6:240
   arr = trues(12)
   arr[1] = false
   param_benchmark(pkpdf.f, pkpdcompprob.f, pkpdf.jac,
-                  pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, t, callback=pkpdcb, tstops=t,
-                  0.8.*pkpdp.+0.1, reltol=1e-7, abstol=1e-7, iter=2, iabstol=1e-12, ireltol=1e-12,
-                  lower=0.5.*pkpdp.-0.2, upper=1.5.*pkpdp.+0.2, run=arr)
+                  pkpdu0, pkpdcompprob.u0, pkpdtspan, pkpdp, t, callback=pkpdcb, tstops=0:24.:240,
+                  0.95.*pkpdp.+0.001, reltol=1e-7, abstol=1e-7, iter=2, iabstol=1e-12, ireltol=1e-12,
+                  lower=0.5.*pkpdp.-0.02, upper=1.5.*pkpdp.+0.02, run=arr)
 end
 
 using CSV, DataFrames

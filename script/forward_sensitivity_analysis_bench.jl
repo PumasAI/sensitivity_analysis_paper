@@ -89,13 +89,13 @@ end
 forward_pkpd = let
   include("pkpd.jl")
   @info "Running the PKPD model:"
-  sol1 = solve(pkpdcompprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=0:24:240,)[end][6:end]
+  #sol1 = solve(pkpdcompprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=0:24:240,)[end][6:end]
   sol2 = vec(auto_sen(pkpdprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=0:24:240))
   sol3 = vec(hcat(diffeq_sen(pkpdprob, Tsit5(),abstol=1e-5,reltol=1e-7,callback=pkpdcb,tstops=0:24:240)...))
-  @test sol1 ≈ sol2 atol=1e-3
+  #@test sol1 ≈ sol2 atol=1e-3
   @test sol2 ≈ sol3 atol=1e-3
   @info "  Running compile-time CSA"
-  t1 = @belapsed solve($pkpdcompprob, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240,);
+  #t1 = @belapsed solve($pkpdcompprob, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240,);
   @info "  Running DSA"
   t2 = @belapsed auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240);
   @info "  Running CSA user-Jacobian"
@@ -109,7 +109,7 @@ forward_pkpd = let
   @info "  Running numerical differentiation"
   t6 = @belapsed numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240);
   print('\n')
-  [t1, t2, t3, t4, t5, t6]
+  [0, t2, t3, t4, t5, t6]
 end
 
 using CSV, DataFrames

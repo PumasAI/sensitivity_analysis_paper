@@ -1,0 +1,5 @@
+root = joinpath(@__DIR__, "script")
+include(joinpath(root, "parameter_estimation_bench.jl"))
+include(joinpath(root, "forward_sensitivity_analysis_bench.jl"))
+include(joinpath(root, "adjoint_sensitivity_analysis_bench.jl"))
+include(joinpath(root, "bruss_scaling.jl"))

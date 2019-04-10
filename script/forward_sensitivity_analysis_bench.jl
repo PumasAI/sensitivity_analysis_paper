@@ -2,9 +2,9 @@
 # Small regime (2x3 Jacobian matrix)
 
 include("sensitivity.jl")
-DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
 
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
 using LinearAlgebra, Test
@@ -39,13 +39,13 @@ forward_bruss = let
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
   sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
   sol2 = @time auto_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
+  @test sol1 ≈ sol2 atol=1e-2
   sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  @test sol1 ≈ hcat(sol3...) atol=1e-3
   sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  @test sol1 ≈ hcat(sol4...) atol=1e-3
   sol5 = @time solve(brusselator_comp, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7,);
-  @test sol1 ≈ sol2 atol=1e-3
-  @test sol2 ≈ hcat(sol3...) atol=1e-3
-  @test sol2 ≈ hcat(sol4...) atol=1e-3
-  @test sol2 ≈ reshape(sol5[end][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
+  @test sol1 ≈ reshape(sol5[end][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
 
   # High tolerance to benchmark
   @info "  Running compile-time CSA"

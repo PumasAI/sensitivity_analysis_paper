@@ -3,9 +3,9 @@ using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTool
 using LinearAlgebra
 using Test
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
-DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
 
 adjoint_lv = let
   include("lotka-volterra.jl")
@@ -36,32 +36,36 @@ adjoint_lv = let
   [t1, t2, t3, t4, t5, t6]
 end
 
-adjoint_bruss = let
+forward_bruss = let
   include("brusselator.jl")
   @info "Running the Brusselator model:"
-  bt = 0+0.01:0.1:10-0.01
-  tspan = (0., 10.)
   n = 5
+  # Run low tolerance to test correctness
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
-  @time bsol1 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), diffalg=(ForwardDiff.gradient), reltol=1e-7, abstol=1e-5);
-  @time bsol2 = auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), diffalg=(ReverseDiff.gradient));
-  @time bsol3 = diffeq_sen_l2((ODEFunction(bfun, jac=brusselator_jac)), b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), reltol=1e-7, abstol=1e-5);
-  @time bsol4 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false), reltol=1e-7, abstol=1e-5);
-  @time bsol5 = diffeq_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true), reltol=1e-7, abstol=1e-5);
-  @time bsol6 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()), reltol=1e-7, abstol=1e-5);
-  @test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
-  @test maximum(abs, bsol1 .- bsol3')/maximum(abs, bsol1) < 4e-2
-  @test maximum(abs, bsol3 .- bsol4)/maximum(abs, bsol3) < 1e-2
-  @test maximum(abs, bsol3 .- bsol5)/maximum(abs, bsol3) < 1e-2
-  @test maximum(abs, bsol1 .- bsol6)/maximum(abs, bsol1) < 2e-2
-  t1 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()), diffalg=$(ForwardDiff.gradient));
-  t2 = @belapsed auto_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)), diffalg=$(ReverseDiff.gradient));
-  t3 = @belapsed diffeq_sen_l2($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)));
-  t4 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)),
-                               sensalg=SensitivityAlg(autojacvec=false));
-  t5 = @belapsed diffeq_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5(autodiff=false)),
-                               sensalg=SensitivityAlg(autojacvec=true));
-  t6 = @belapsed numerical_sen_l2($bfun, $b_u0, $tspan, $b_p, $bt, $(Rodas5()));
+  sol1 = @time numerical_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
+  sol2 = @time auto_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(), abstol=1e-5,reltol=1e-7);
+  sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  sol5 = @time solve(brusselator_comp, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7,);
+  @test maximum(abs, sol1 - sol2) < 1e-3
+  @test maximum(abs, sol2 - hcat(sol3...)) < 1e-3
+  @test maximum(abs, sol2 - hcat(sol4...)) < 1e-3
+  @test maximum(sol2 - reshape(sol5[end][2n*n+1:end], 2n*n, 4n*n)) < 1e-3
+
+  # High tolerance to benchmark
+  @info "  Running compile-time CSA"
+  t1 = @belapsed solve($brusselator_comp, $(Rodas5(autodiff=false)), );
+  @info "  Running DSA"
+  t2 = @belapsed auto_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()));
+  @info "  Running CSA user-Jacobian"
+  t3 = @belapsed diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)));
+  @info "  Running AD-Jacobian"
+  t4 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+  @info "  Running AD-Jv seeding"
+  t5 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true));
+  @info "  Running numerical differentiation"
+  t6 = @belapsed numerical_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()));
+  print('\n')
   [t1, t2, t3, t4, t5, t6]
 end
 

@@ -4,9 +4,9 @@ pgfplots()
 include("sensitivity.jl")
 include("lotka-volterra.jl")
 include("brusselator.jl")
-DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
 
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
 t = collect(range(0, stop=10, length=200));

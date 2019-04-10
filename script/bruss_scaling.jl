@@ -5,9 +5,9 @@ using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffToo
 using LinearAlgebra
 using Test
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
-DiffEqBase.has_tgrad(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitvityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitvityFunction) = false
+DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
 
 bt = 0:0.1:1
 tspan = (-0.01, 1.01)

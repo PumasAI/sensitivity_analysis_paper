@@ -108,7 +108,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t3 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_diffeq(
-            grad,p,ODEFunction(fun, jac=jac),u0,tspan,data,t; alg=alg, kwargs...),
+            grad,p,ODEFunction(fun, jac=jac),u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=false), alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[4]

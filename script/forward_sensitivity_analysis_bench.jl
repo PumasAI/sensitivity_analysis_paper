@@ -2,9 +2,9 @@
 # Small regime (2x3 Jacobian matrix)
 
 include("sensitivity.jl")
-DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_tgrad(::ODEForwardSensitivityFunction) = false
+DiffEqBase.has_invW(::ODEForwardSensitivityFunction) = false
+DiffEqBase.has_jac(::ODEForwardSensitivityFunction) = false
 
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
 using LinearAlgebra, Test
@@ -19,11 +19,11 @@ forward_lv = let
   @info "  Running DSA"
   t2 = @belapsed auto_sen($lvdf, $u0, $tspan, $p, $(Tsit5()))
   @info "  Running CSA user-Jacobian"
-  t3 = @belapsed diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Tsit5()))
+  t3 = @belapsed diffeq_sen($lvdf_with_jacobian, $u0, $tspan, $p, $(Tsit5()), sensalg=ForwardSensitivity(autodiff=false, autojacvec=false))
   @info "  Running AD-Jacobian"
-  t4 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), sensalg=SensitivityAlg(autojacvec=false))
+  t4 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), sensalg=ForwardSensitivity(autojacvec=false))
   @info "  Running AD-Jv seeding"
-  t5 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), sensalg=SensitivityAlg(autojacvec=true))
+  t5 = @belapsed diffeq_sen($lvdf, $u0, $tspan, $p, $(Tsit5()), sensalg=ForwardSensitivity(autojacvec=true))
   @info "  Running numerical differentiation"
   t6 = @belapsed numerical_sen($lvdf, $u0, $tspan, $p, $(Tsit5()))
   print('\n')
@@ -42,7 +42,7 @@ forward_bruss = let
   @test sol1 ≈ sol2 atol=1e-2
   sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
   @test sol1 ≈ hcat(sol3...) atol=1e-3
-  sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
+  sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7, sensalg=ForwardSensitivity(autodiff=false, autojacvec=false));
   @test sol1 ≈ hcat(sol4...) atol=1e-3
   sol5 = @time solve(brusselator_comp, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7,);
   @test sol1 ≈ reshape(sol5[end][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
@@ -53,11 +53,11 @@ forward_bruss = let
   @info "  Running DSA"
   t2 = @belapsed auto_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()));
   @info "  Running CSA user-Jacobian"
-  t3 = @belapsed diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)));
+  t3 = @belapsed diffeq_sen($(ODEFunction(bfun, jac=brusselator_jac)), $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=ForwardSensitivity(autodiff=false, autojacvec=false));
   @info "  Running AD-Jacobian"
-  t4 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+  t4 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=ForwardSensitivity(autojacvec=false));
   @info "  Running AD-Jv seeding"
-  t5 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true));
+  t5 = @belapsed diffeq_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5(autodiff=false)), sensalg=ForwardSensitivity(autojacvec=true));
   @info "  Running numerical differentiation"
   t6 = @belapsed numerical_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()));
   print('\n')
@@ -71,15 +71,15 @@ forward_pollution = let
   pcomp, pu0, pp, pcompu0 = make_pollution()
   ptspan = (0.,60.)
   @info "  Running compile-time CSA"
-  t1 = @belapsed solve($(ODEProblem(pcomp, pcompu0, ptspan, pp)), $(Rodas5(autodiff=false)),);
+  t1 = 0#@belapsed solve($(ODEProblem(pcomp, pcompu0, ptspan, pp)), $(Rodas5(autodiff=false)),);
   @info "  Running DSA"
   t2 = @belapsed auto_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
   @info "  Running CSA user-Jacobian"
-  t3 = @belapsed diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)));
+  t3 = @belapsed diffeq_sen($(ODEFunction(pollution.f, jac=pollution.jac)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=ForwardSensitivity(autodiff=false, autojacvec=false));
   @info "  Running AD-Jacobian"
-  t4 = @belapsed diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=false));
+  t4 = @belapsed diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=ForwardSensitivity(autojacvec=false));
   @info "  Running AD-Jv seeding"
-  t5 = @belapsed diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=SensitivityAlg(autojacvec=true));
+  t5 = @belapsed diffeq_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5(autodiff=false)), sensalg=ForwardSensitivity(autojacvec=true));
   @info "  Running numerical differentiation"
   t6 = @belapsed numerical_sen($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $(Rodas5()));
   print('\n')
@@ -99,13 +99,13 @@ forward_pkpd = let
   @info "  Running DSA"
   t2 = @belapsed auto_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240);
   @info "  Running CSA user-Jacobian"
-  t3 = @belapsed diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240);
+  t3 = @belapsed diffeq_sen($(ODEFunction(pkpdf.f, jac=pkpdf.jac)), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240, sensalg=ForwardSensitivity(autodiff=false, autojacvec=false));
   @info "  Running AD-Jacobian"
   t4 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240,
-                    sensalg=SensitivityAlg(autojacvec=false));
+                    sensalg=ForwardSensitivity(autojacvec=false));
   @info "  Running AD-Jv seeding"
   t5 = @belapsed diffeq_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240,
-                         sensalg=SensitivityAlg(autojacvec=true));
+                         sensalg=ForwardSensitivity(autojacvec=true));
   @info "  Running numerical differentiation"
   t6 = @belapsed numerical_sen($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $(Tsit5()),callback=$pkpdcb,tstops=0:24:240);
   print('\n')

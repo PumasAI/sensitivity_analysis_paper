@@ -3,9 +3,9 @@ using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTool
 using LinearAlgebra
 using Test
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
-DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_tgrad(::ODEForwardSensitivityFunction) = false
+DiffEqBase.has_invW(::ODEForwardSensitivityFunction) = false
+DiffEqBase.has_jac(::ODEForwardSensitivityFunction) = false
 
 adjoint_lv = let
   include("lotka-volterra.jl")
@@ -135,7 +135,7 @@ end
 using CSV, DataFrames
 let
   adjoint_methods = ["Forward-Mode DSAAD", "Reverse-Mode DSAAD", "CASA User-Jacobian",
-                     "CASA AD-Jacobian", "CASA AD-Jv seeding", "Numerical Differentiation"]
+                     "CASA AD-Jacobian", "CASA AD-vJ seeding", "Numerical Differentiation"]
   adjoint_timings = DataFrame(methods=adjoint_methods, LV=adjoint_lv, Bruss=adjoint_bruss,
                                Pollution=adjoint_pollution, PKPD=adjoint_pkpd)
   bench_file_path = joinpath(@__DIR__, "..", "adjoint_timings.csv")

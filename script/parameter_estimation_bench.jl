@@ -2,9 +2,9 @@ include("parameter_estimation.jl")
 @elapsed 1+1
 using LinearAlgebra
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
-DiffEqBase.has_tgrad(::ODELocalSensitivityFunction) = false
-DiffEqBase.has_invW(::ODELocalSensitivityFunction) = false
-DiffEqBase.has_jac(::ODELocalSensitivityFunction) = false
+DiffEqBase.has_tgrad(::ODEForwardSensitivityFunction) = false
+DiffEqBase.has_invW(::ODEForwardSensitivityFunction) = false
+DiffEqBase.has_jac(::ODEForwardSensitivityFunction) = false
 
 forward_param_lv, adjoint_param_lv = let
   include("lotka-volterra.jl")

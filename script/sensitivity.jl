@@ -7,8 +7,8 @@ function auto_sen(prob::DiffEqBase.DEProblem, args...; kwargs...)
   auto_sen(prob.f, prob.u0, prob.tspan, prob.p, args...; kwargs...)
 end
 
-function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); sensalg=SensitivityAlg(), kwargs...)
-  prob = ODELocalSensitivityProblem(f,u0,tspan,p,sensalg)
+function diffeq_sen(f, u0, tspan, p, alg=Tsit5(); sensalg=ForwardSensitivity(), kwargs...)
+  prob = ODEForwardSensitivityProblem(f,u0,tspan,p,sensalg)
   sol = solve(prob,alg; save_everystep=false, kwargs...)
   extract_local_sensitivities(sol, length(sol))[2]
 end
@@ -23,7 +23,7 @@ end
 
 function diffeq_sen_l2(df, u0, tspan, p, t, alg=Tsit5();
                        abstol=1e-5, reltol=1e-7, iabstol=abstol, ireltol=reltol,
-                       sensalg=SensitivityAlg(), kwargs...)
+                       sensalg=InterpolatingAdjoint(), kwargs...)
   prob = ODEProblem(df,u0,tspan,p)
   sol = solve(prob, alg, abstol=abstol, reltol=reltol; kwargs...)
   dg(out,u,p,t,i) = (out.=1.0.-u)
@@ -53,7 +53,7 @@ function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); kwargs...)
   DiffEqDiffTools.finite_difference_gradient(test_f, p, Val{:central})
 end
 
-function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), sensalg=SensitivityAlg(), kwargs...)
+function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), sensalg=InterpolatingAdjoint(), kwargs...)
   prob = ODELocalSensitivityProblem(f,u0,tspan,p)
   sol = solve(prob,alg;sensealg=sensalg,kwargs...)(t)
   nvar = length(u0)
@@ -93,5 +93,7 @@ function numerical_sen(f,u0, tspan, p, alg=Tsit5(); kwargs...)
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
     copyto!(out, solve(prob,alg; kwargs...)[end])
   end
-  DiffEqDiffTools.finite_difference_jacobian!(Matrix{Float64}(undef,length(u0),length(p)),test_f, p, DiffEqDiffTools.JacobianCache(p,Array{Float64}(undef,length(u0))))
+  J = Matrix{Float64}(undef,length(u0),length(p))
+  DiffEqDiffTools.finite_difference_jacobian!(J, test_f, p, DiffEqDiffTools.JacobianCache(p,Array{Float64}(undef,length(u0))))
+  return J
 end

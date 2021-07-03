@@ -5,10 +5,6 @@ using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffToo
 using DiffEqSensitivity: alg_autodiff
 using LinearAlgebra
 using Test
-Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
-DiffEqBase.has_tgrad(::ODEForwardSensitivityFunction) = false
-DiffEqBase.has_invW(::ODEForwardSensitivityFunction) = false
-DiffEqBase.has_jac(::ODEForwardSensitivityFunction) = false
 
 bt = 0:0.1:1
 tspan = (0.0, 1.0)
@@ -17,22 +13,14 @@ reversediffn = 2:10
 numdiffn = vcat(2:10,12)
 csan = vcat(2:10,12,15,17)
 #csaseedn = 2:10
-
-_adjoint_methods = ntuple(2) do ii
-  Alg = (InterpolatingAdjoint, QuadratureAdjoint)[ii]
-  (
-    user = Alg(autodiff=false,autojacvec=false), # user Jacobian
-    adjc = Alg(autodiff=true,autojacvec=false), # AD Jacobian
-    advj = Alg(autodiff=true,autojacvec=true), # AD vJ
-    advj_compiled = Alg(autodiff=true,autojacvec=ReverseDiffVJP(true)), # AD vJ compiled
-  )
-end |> NamedTuple{(:interp, :quad)}
-adjoint_methods = mapreduce(collect, vcat, _adjoint_methods)
 tols = (abstol=1e-5, reltol=1e-7)
+
+@isdefined(PROBS) || (const PROBS = Dict{Any,Int}())
+makebrusselator!(dict, n) = get!(()->makebrusselator(n), dict, n)
 
 println("Forward Diff")
 forwarddiff = map(forwarddiffn) do n
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator!(PROBS, n)
   @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()); diffalg=(ForwardDiff.gradient), tols...)
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()); diffalg=(ForwardDiff.gradient), tols...)
   @show n,t
@@ -45,7 +33,7 @@ end
 
 println("Reverse Diff")
 reversediff = map(reversediffn) do n
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator!(PROBS, n)
   @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)); diffalg=(ReverseDiff.gradient), tols...)
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5(autodiff=false)); diffalg=(ReverseDiff.gradient), tols...)
   @show n,t
@@ -58,7 +46,7 @@ end
 
 println("Num Diff")
 numdiff = map(numdiffn) do n
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator!(PROBS, n)
   @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()); diffalg=(DiffEqDiffTools.finite_difference_gradient), tols...)
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()); diffalg=(DiffEqDiffTools.finite_difference_gradient), tols...)
   @show n,t
@@ -72,8 +60,8 @@ end
 
 println("CSA")
 csa = map(csan) do n
-  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
-  @time ts = map(adjoint_methods) do alg
+  bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator!(PROBS, n)
+  @time ts = map(ADJOINT_METHODS) do alg
     @info "Runing $alg"
     f = alg_autodiff(alg) ? bfun : ODEFunction(bfun, jac=brusselator_jac)
     solver = Rodas5(autodiff=false)

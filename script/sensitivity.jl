@@ -1,4 +1,17 @@
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus, DiffResults, DiffEqBase
+using LinearAlgebra
+Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
+tols = (abstol=1e-5, reltol=1e-7)
+
+_adjoint_methods = ntuple(3) do ii
+  Alg = (InterpolatingAdjoint, QuadratureAdjoint, BacksolveAdjoint)[ii]
+  (
+    user = Alg(autodiff=false,autojacvec=false), # user Jacobian
+    adjc = Alg(autodiff=true,autojacvec=false), # AD Jacobian
+    advj = Alg(autodiff=true,autojacvec=true), # AD vJ
+  )
+end |> NamedTuple{(:interp, :quad, :backsol)}
+@isdefined(ADJOINT_METHODS) || (const ADJOINT_METHODS = mapreduce(collect, vcat, _adjoint_methods))
 
 function diffeq_sen(prob::DiffEqBase.DEProblem, args...; kwargs...)
   diffeq_sen(prob.f, prob.u0, prob.tspan, prob.p, args...; kwargs...)

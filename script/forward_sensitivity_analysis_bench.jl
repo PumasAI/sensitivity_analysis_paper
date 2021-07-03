@@ -2,9 +2,6 @@
 # Small regime (2x3 Jacobian matrix)
 
 include("sensitivity.jl")
-DiffEqBase.has_tgrad(::ODEForwardSensitivityFunction) = false
-DiffEqBase.has_invW(::ODEForwardSensitivityFunction) = false
-DiffEqBase.has_jac(::ODEForwardSensitivityFunction) = false
 
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, BenchmarkTools, StaticArrays#, Profile, ProfileView
 using LinearAlgebra, Test

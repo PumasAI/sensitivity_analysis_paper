@@ -4,7 +4,7 @@ include("sensitivity.jl")
 
 function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
                            alg=Tsit5(), lower=0.4.*p, upper=1.6.*p,
-                           verbose=false, iter=2, dropfirst=true, run=trues(12), kwargs...)
+                           verbose=false, iter=2, dropfirst=true, run=trues(10), kwargs...)
   prob_original = ODEProblem(fun, u0, tspan, p)
   data = solve(prob_original, alg; kwargs...)(t)
   t = collect(t)
@@ -108,7 +108,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t3 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_diffeq(
-            grad,p,ODEFunction(fun, jac=jac),u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=false), alg=alg, kwargs...),
+            grad,p,ODEFunction(fun, jac=jac),u0,tspan,data,t; sensalg=ForwardSensitivity(autojacvec=false), alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[4]
@@ -116,7 +116,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t4 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_diffeq(
-            grad,p,fun,u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=false),
+            grad,p,fun,u0,tspan,data,t; sensalg=ForwardSensitivity(autojacvec=false),
             alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -125,7 +125,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         t5 += @elapsed (s=optimize(
           cost,
           (grad,p)->costfunc_gradient_diffeq(
-            grad,p,fun,u0,tspan,data,t; sensalg=SensitivityAlg(autojacvec=true),
+            grad,p,fun,u0,tspan,data,t; sensalg=ForwardSensitivity(autojacvec=true),
             alg=alg, kwargs...),
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
@@ -157,35 +157,21 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
           lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
       end
       if run[9]
-        @info "  CASA User-Jacobian"
-        a3 += @elapsed (s=optimize(
-          cost,
-          (grad,_p)->adjoint_diffeq_grad(
-            grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; alg=alg,
-            sensalg=SensitivityAlg(autojacvec=false), kwargs...),
-          lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
+        @info "  CASAs"
+        a3 = map(ADJOINT_METHODS) do sensealg
+          time = @elapsed s=optimize(
+            cost,
+            (grad,_p)->adjoint_diffeq_grad(
+              grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; alg=alg,
+              sensalg=sensealg, kwargs...),
+            lower, upper, p0, (Fminbox(inner_optimizer)), opt)
+          @test Optim.converged(s)
+          time
+        end
       end
       if run[10]
-        @info "  CASA AD-Jacobian"
-        a4 += @elapsed (s=optimize(
-          cost,
-          (grad,p)->adjoint_diffeq_grad(
-            grad,p,fun,u0,tspan,data,t; alg=alg,
-            sensalg=SensitivityAlg(autojacvec=false), kwargs...),
-          lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
-      end
-      if run[11]
-        @info "  CASA AD-Jv seeding"
-        a5 += @elapsed (s=optimize(
-          cost,
-          (grad,p)->adjoint_diffeq_grad(
-            grad,p,fun,u0,tspan,data,t; alg=alg,
-            sensalg=SensitivityAlg(autojacvec=true), kwargs...),
-          lower, upper, p0, (Fminbox(inner_optimizer)), opt); @test Optim.converged(s));
-      end
-      if run[12]
         @info "  Numerical Differentiation"
-        a6 += @elapsed (s=optimize(
+        a4 += @elapsed (s=optimize(
           cost,
           (grad,p)->adjoint_diff_grad(
             grad,p,fun,u0,tspan,data,t; alg=alg,
@@ -198,6 +184,6 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
       end
     end
     num = dropfirst ? iter-1 : iter
-    [t1, t2, t3, t4, t5, t6] ./ num, [a1, a2, a3, a4, a5, a6] ./ num
+    map(x->x./num, [t1, t2, t3, t4, t5, t6]), map(x->x./num, [a1, a2, a3, a4, a5, a6])
   end
 end

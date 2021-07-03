@@ -69,7 +69,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
   function adjoint_diff_grad(grad, p, df, u0, tspan, data, t; alg, diffalg, kwargs...)
     test_f(p) = begin
       prob = ODEProblem(df,eltype(p).(u0),tspan,p)
-      sol = solve(prob,alg; kwargs...)(t)
+      sol = solve(prob,alg; saveat=t, sensealg=DiffEqBase.SensitivityADPassThrough(), kwargs...)
       sum(x->norm(x)^2, Broadcast.broadcasted(-, data.u, sol.u))
     end
     _grad = diffalg(test_f, p)
@@ -158,7 +158,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
       end
       if run[9]
         @info "  CASAs"
-        a3 isa Number ? (a3 = zeros(length(adjoint_methods)))
+        a3 isa Number && (a3 = zeros(length(adjoint_methods)))
         a3 += map(adjoint_methods) do sensealg
           time = @elapsed s=optimize(
             cost,

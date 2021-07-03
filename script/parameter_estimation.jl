@@ -62,7 +62,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         nothing
       end
     end
-    _grad = adjoint_sensitivities(sol, alg, dg, t; sensealg=sensalg, kwargs...,callback=CallbackSet())
+    _, _grad = adjoint_sensitivities(sol, alg, dg, t; sensealg=sensalg, kwargs...,callback=CallbackSet())
     copyto!(grad, _grad)
     nothing
   end
@@ -160,10 +160,11 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
         @info "  CASAs"
         a3 isa Number && (a3 = zeros(length(adjoint_methods)))
         a3 += map(adjoint_methods) do sensealg
+          f = alg_autodiff(sensealg) ? fun : ODEFunction(fun, jac=jac)
           time = @elapsed s=optimize(
             cost,
             (grad,_p)->adjoint_diffeq_grad(
-              grad,_p,ODEFunction(fun,jac=jac),u0,tspan,data,t; alg=alg,
+              grad,_p,f,u0,tspan,data,t; alg=alg,
               sensalg=sensealg, kwargs...),
             lower, upper, p0, (Fminbox(inner_optimizer)), opt)
           @test Optim.converged(s)

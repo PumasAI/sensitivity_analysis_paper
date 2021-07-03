@@ -15,7 +15,7 @@ csan = vcat(2:10,12,15,17)
 #csaseedn = 2:10
 tols = (abstol=1e-5, reltol=1e-7)
 
-@isdefined(PROBS) || (const PROBS = Dict{Any,Int}())
+@isdefined(PROBS) || (const PROBS = Dict{Int,Any}())
 makebrusselator!(dict, n) = get!(()->makebrusselator(n), dict, n)
 
 println("Forward Diff")
@@ -56,7 +56,6 @@ open("../bruss_scaling_data.txt", "w+") do f
   write(f, "numdiffn = $numdiffn \n")
   write(f, "numdiff = $numdiff \n")
 end
-
 
 println("CSA")
 csa = map(csan) do n

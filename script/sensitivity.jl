@@ -1,5 +1,6 @@
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus, DiffResults, DiffEqBase
 using LinearAlgebra
+using DiffEqSensitivity: alg_autodiff
 Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
 tols = (abstol=1e-5, reltol=1e-7)
 

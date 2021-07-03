@@ -1,6 +1,5 @@
 include("sensitivity.jl")
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, BenchmarkTools#, Profile, ProfileView
-using DiffEqSensitivity: alg_autodiff
 using LinearAlgebra
 using Test
 

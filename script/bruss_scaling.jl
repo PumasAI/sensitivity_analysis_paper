@@ -38,6 +38,11 @@ forwarddiff = map(forwarddiffn) do n
   @show n,t
   t
 end
+open("../bruss_scaling_data.txt", "w") do f
+  write(f, "forwarddiffn = $forwarddiffn \n")
+  write(f, "forwarddiff = $forwarddiff \n")
+end
+
 println("Reverse Diff")
 reversediff = map(reversediffn) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
@@ -46,6 +51,11 @@ reversediff = map(reversediffn) do n
   @show n,t
   t
 end
+open("../bruss_scaling_data.txt", "w") do f
+  write(f, "reversediffn = $reversediffn \n")
+  write(f, "reversediff = $reversediff \n")
+end
+
 println("Num Diff")
 numdiff = map(numdiffn) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator(n)
@@ -54,6 +64,11 @@ numdiff = map(numdiffn) do n
   @show n,t
   t
 end
+open("../bruss_scaling_data.txt", "w") do f
+  write(f, "numdiffn = $numdiffn \n")
+  write(f, "numdiff = $numdiff \n")
+end
+
 
 println("CSA")
 csa = map(csan) do n
@@ -71,14 +86,6 @@ csa = map(csan) do n
 end
 
 open("../bruss_scaling_data.txt", "w") do f
-  write(f, "forwarddiffn = $forwarddiffn \n")
-  write(f, "forwarddiff = $forwarddiff \n")
-  write(f, "reversediffn = $reversediffn \n")
-  write(f, "reversediff = $reversediff \n")
-  write(f, "numdiffn = $numdiffn \n")
-  write(f, "numdiff = $numdiff \n")
   write(f, "csan = $csan \n")
   write(f, "csa = $csa \n")
-  #write(f, "csaseedn = $csaseedn \n")
-  #write(f, "csaseed = $csaseed \n")
 end

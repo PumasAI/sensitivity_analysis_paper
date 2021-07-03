@@ -1,4 +1,4 @@
-using Plots; pgfplots()
+using Plots; gr()
 eval.(Meta.parse.(split(String(read(joinpath(@__DIR__, "..", "bruss_scaling_data.txt"))), '\n')))
 
 n_to_param(n) = 4n^2

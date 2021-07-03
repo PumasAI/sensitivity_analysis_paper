@@ -39,7 +39,7 @@ reversediff = map(reversediffn) do n
   @show n,t
   t
 end
-open("../bruss_scaling_data.txt", "w") do f
+open("../bruss_scaling_data.txt", "w+") do f
   write(f, "reversediffn = $reversediffn \n")
   write(f, "reversediff = $reversediff \n")
 end
@@ -52,7 +52,7 @@ numdiff = map(numdiffn) do n
   @show n,t
   t
 end
-open("../bruss_scaling_data.txt", "w") do f
+open("../bruss_scaling_data.txt", "w+") do f
   write(f, "numdiffn = $numdiffn \n")
   write(f, "numdiff = $numdiff \n")
 end
@@ -61,7 +61,7 @@ end
 println("CSA")
 csa = map(csan) do n
   bfun, b_u0, b_p, brusselator_jac, brusselator_comp = makebrusselator!(PROBS, n)
-  @time ts = map(ADJOINT_METHODS) do alg
+  @time ts = map(ADJOINT_METHODS[1:2end÷3]) do alg
     @info "Runing $alg"
     f = alg_autodiff(alg) ? bfun : ODEFunction(bfun, jac=brusselator_jac)
     solver = Rodas5(autodiff=false)
@@ -73,7 +73,7 @@ csa = map(csan) do n
   ts
 end
 
-open("../bruss_scaling_data.txt", "w") do f
+open("../bruss_scaling_data.txt", "w+") do f
   write(f, "csan = $csan \n")
   write(f, "csa = $csa \n")
 end

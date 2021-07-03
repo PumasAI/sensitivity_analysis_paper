@@ -4,7 +4,7 @@ include("sensitivity.jl")
 
 function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
                            alg=Tsit5(), lower=0.4.*p, upper=1.6.*p,
-                           verbose=false, iter=2, dropfirst=true, run=trues(10), kwargs...)
+                           verbose=false, iter=2, dropfirst=true, run=trues(10), adjoint_methods=ADJOINT_METHODS, kwargs...)
   prob_original = ODEProblem(fun, u0, tspan, p)
   data = solve(prob_original, alg; kwargs...)(t)
   t = collect(t)
@@ -158,7 +158,8 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
       end
       if run[9]
         @info "  CASAs"
-        a3 = map(ADJOINT_METHODS) do sensealg
+        a3 isa Number ? (a3 = zeros(length(adjoint_methods)))
+        a3 += map(adjoint_methods) do sensealg
           time = @elapsed s=optimize(
             cost,
             (grad,_p)->adjoint_diffeq_grad(

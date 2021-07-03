@@ -46,7 +46,7 @@ adjoint_bruss = let
   end
   @time bsol4 = numerical_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()); tols...);
   @test maximum(abs, bsol1 .- bsol2)/maximum(abs,  bsol1) < 1e-2
-  # NOTE: black solve gives unstable results!!!
+  # NOTE: backsolve gives unstable results!!!
   @test all(i->maximum(abs, bsol1 .- bsol3[i]')/maximum(abs, bsol1) < 4e-2, eachindex(ADJOINT_METHODS)[1:2end÷3])
   @test all(i->maximum(abs, bsol1 .- bsol3[i]')/maximum(abs, bsol1) >= 4e-2, eachindex(ADJOINT_METHODS)[2end÷3+1:end])
   @test maximum(abs, bsol1 .- bsol4)/maximum(abs, bsol1) < 2e-2
@@ -79,7 +79,7 @@ adjoint_pollution = let
   end
   @time psol4 = numerical_sen_l2((ODEFunction(pollution.f)), pu0, ptspan, pp, pts, (Rodas5(autodiff=false)); tols...);
   @test maximum(abs, psol1 .- psol2)/maximum(abs,  psol1) < 1e-2
-  # NOTE: black solve gives unstable results!!!
+  # NOTE: backsolve gives unstable results!!!
   @test all(i->maximum(abs, psol1 .- psol3[i]')/maximum(abs, psol1) < 1e-2, eachindex(ADJOINT_METHODS)[1:2end÷3])
   @test all(i->maximum(abs, psol1 .- psol3[i]')/maximum(abs, psol1) >= 1e-2, eachindex(ADJOINT_METHODS)[2end÷3+1:end])
   @test maximum(abs, psol1 .- psol4)/maximum(abs, psol1) < 1e-2
@@ -91,6 +91,7 @@ adjoint_pollution = let
     solver = Rodas5(autodiff=false)
     @elapsed diffeq_sen_l2(f, pu0, ptspan, pp, pts, solver; sensalg=alg, tols...);
   end
+  t3 = [t3; fill(NaN, length(ADJOINT_METHODS)÷3)]
   t4 = @belapsed numerical_sen_l2($(ODEFunction(pollution.f)), $pu0, $ptspan, $pp, $pts, $(Rodas5(autodiff=false)); $tols...);
   [t1, t2, t3, t4]
 end
@@ -104,25 +105,26 @@ adjoint_pkpd = let
                                 diffalg=(ForwardDiff.gradient), tols...);
   pkpdsol2 = @time auto_sen_l2((pkpdf.f), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()); callback=pkpdcb, tstops=0:24:240,
                                 diffalg=(ReverseDiff.gradient), tols...);
-  pkpdsol3 = @time map(ADJOINT_METHODS) do alg
+  pkpdsol3 = @time map(ADJOINT_METHODS[1:2end÷3]) do alg
     f = alg_autodiff(alg) ? pkpdf.f : ODEFunction(pkpdf.f, jac=pkpdf.jac)
     diffeq_sen_l2(f, pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5()); sensalg=alg,
                                   callback=pkpdcb, tstops=0:24:240, tols...);
   end
-  pkpdsol6 = @time numerical_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5());
+  pkpdsol4 = @time numerical_sen_l2((ODEFunction(pkpdf.f)), pkpdu0, pkpdtspan, pkpdp, pts, (Tsit5());
                                      callback=pkpdcb, tstops=0:24:240, tols...);
   @test maximum(abs, pkpdsol1 .- pkpdsol2)/maximum(abs,  pkpdsol1) < 0.2
-  @test all(i->maximum(abs, pkpdsol1 .- pkpdsol3[i]')/maximum(abs,  pkpdsol1) < 0.2, eachindex(ADJOINT_METHODS))
+  @test all(i->maximum(abs, pkpdsol1 .- pkpdsol3[i]')/maximum(abs,  pkpdsol1) < 0.2, eachindex(ADJOINT_METHODS)[1:2end÷3])
   @test maximum(abs, pkpdsol1 .- pkpdsol4)/maximum(abs,  pkpdsol1) < 0.2
   t1 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()); callback=pkpdcb, tstops=0:24:240,
                                 diffalg=$(ForwardDiff.gradient), $tols...);
   t2 = @belapsed auto_sen_l2($(pkpdf.f), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()); callback=pkpdcb, tstops=0:24:240,
                                 diffalg=$(ReverseDiff.gradient), $tols...);
-  t3 = map(ADJOINT_METHODS) do alg
+  t3 = map(ADJOINT_METHODS[1:2end÷3]) do alg
     f = alg_autodiff(alg) ? pkpdf.f : ODEFunction(pkpdf.f, jac=pkpdf.jac)
     @belapsed diffeq_sen_l2($f, $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()); tstops=0:24:240,
                                   callback=pkpdcb, sensalg=$alg, tols...);
   end
+  t3 = [t3; fill(NaN, length(ADJOINT_METHODS)÷3)]
   t4 = @belapsed numerical_sen_l2($(ODEFunction(pkpdf.f)), $pkpdu0, $pkpdtspan, $pkpdp, $pts, $(Tsit5()); tstops=0:24:240,
                                      callback=$pkpdcb, $tols...);
   [t1, t2, t3, t4]
@@ -134,17 +136,3 @@ open("../adjoint_bench.txt", "w") do f
   write(f, "adjoint_pollution = $adjoint_pollution \n")
   write(f, "adjoint_pkpd = $adjoint_pkpd \n")
 end
-
-#=
-using CSV, DataFrames
-let
-  ADJOINT_METHODS = ["Forward-Mode DSAAD", "Reverse-Mode DSAAD", "CASA User-Jacobian",
-                     "CASA AD-Jacobian", "CASA AD-vJ seeding", "Numerical Differentiation"]
-  adjoint_timings = DataFrame(methods=ADJOINT_METHODS, LV=adjoint_lv, Bruss=adjoint_bruss,
-                               Pollution=adjoint_pollution, PKPD=adjoint_pkpd)
-  bench_file_path = joinpath(@__DIR__, "..", "adjoint_timings.csv")
-  display(adjoint_timings)
-  @info "Writing the benchmark results to $bench_file_path"
-  CSV.write(bench_file_path, adjoint_timings)
-end
-=#

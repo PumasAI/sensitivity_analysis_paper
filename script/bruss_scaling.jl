@@ -26,10 +26,6 @@ forwarddiff = map(forwarddiffn) do n
   @show n,t
   t
 end
-open("../bruss_scaling_data.txt", "w") do f
-  write(f, "forwarddiffn = $forwarddiffn \n")
-  write(f, "forwarddiff = $forwarddiff \n")
-end
 
 println("Reverse Diff")
 reversediff = map(reversediffn) do n
@@ -39,10 +35,6 @@ reversediff = map(reversediffn) do n
   @show n,t
   t
 end
-open("../bruss_scaling_data.txt", "w+") do f
-  write(f, "reversediffn = $reversediffn \n")
-  write(f, "reversediff = $reversediff \n")
-end
 
 println("Num Diff")
 numdiff = map(numdiffn) do n
@@ -51,10 +43,6 @@ numdiff = map(numdiffn) do n
   t = @elapsed auto_sen_l2(bfun, b_u0, tspan, b_p, bt, (Rodas5()); diffalg=(DiffEqDiffTools.finite_difference_gradient), tols...)
   @show n,t
   t
-end
-open("../bruss_scaling_data.txt", "w+") do f
-  write(f, "numdiffn = $numdiffn \n")
-  write(f, "numdiff = $numdiff \n")
 end
 
 println("CSA")
@@ -73,6 +61,12 @@ csa = map(csan) do n
 end
 
 open("../bruss_scaling_data.txt", "w+") do f
+  write(f, "forwarddiffn = $forwarddiffn \n")
+  write(f, "forwarddiff = $forwarddiff \n")
+  write(f, "reversediffn = $reversediffn \n")
+  write(f, "reversediff = $reversediff \n")
+  write(f, "numdiffn = $numdiffn \n")
+  write(f, "numdiff = $numdiff \n")
   write(f, "csan = $csan \n")
   write(f, "csa = $csa \n")
 end

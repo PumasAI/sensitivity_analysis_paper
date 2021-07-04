@@ -9,7 +9,7 @@ _adjoint_methods = ntuple(3) do ii
   (
     user = Alg(autodiff=false,autojacvec=false), # user Jacobian
     adjc = Alg(autodiff=true,autojacvec=false), # AD Jacobian
-    advj = Alg(autodiff=true,autojacvec=true), # AD vJ
+    advj = Alg(autodiff=true,autojacvec=EnzymeVJP()), # AD vJ
   )
 end |> NamedTuple{(:interp, :quad, :backsol)}
 @isdefined(ADJOINT_METHODS) || (const ADJOINT_METHODS = mapreduce(collect, vcat, _adjoint_methods))

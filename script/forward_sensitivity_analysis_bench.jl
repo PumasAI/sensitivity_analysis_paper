@@ -41,7 +41,7 @@ forward_bruss = let
   sol3 = @time diffeq_sen(bfun, b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7);
   @test sol1 ≈ hcat(sol3...) atol=1e-3
   sol4 = @time diffeq_sen(ODEFunction(bfun, jac=brusselator_jac), b_u0, (0.,10.), b_p, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7, sensalg=ForwardSensitivity(autodiff=false, autojacvec=false));
-  @test sol1 ≈ hcat(sol4...) atol=1e-3
+  @test sol1 ≈ hcat(sol4...) atol=1e-2
   sol5 = @time solve(brusselator_comp, Rodas5(autodiff=false), abstol=1e-5,reltol=1e-7,);
   @test sol1 ≈ reshape(sol5[end][2n*n+1:end], 2n*n, 4n*n) atol=1e-3
 
@@ -59,7 +59,6 @@ forward_bruss = let
   @info "  Running numerical differentiation"
   t6 = @belapsed numerical_sen($bfun, $b_u0, $((0.,10.)), $b_p, $(Rodas5()); $tols...);
   print('\n')
-  [t1, t2, t3, t4, t5, t6]
 end
 
 # 20×25 Jacobian

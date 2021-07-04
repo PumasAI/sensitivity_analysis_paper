@@ -69,7 +69,7 @@ function param_benchmark(fun, compfun, jac, u0, compu0, tspan, p, t, p0;
   function adjoint_diff_grad(grad, p, df, u0, tspan, data, t; alg, diffalg, kwargs...)
     test_f(p) = begin
       prob = ODEProblem(df,eltype(p).(u0),tspan,p)
-      sol = solve(prob,alg; saveat=t, sensealg=DiffEqBase.SensitivityADPassThrough(), kwargs...)
+      sol = solve(prob,alg; sensealg=DiffEqBase.SensitivityADPassThrough(), kwargs...)(t)
       sum(x->norm(x)^2, Broadcast.broadcasted(-, data.u, sol.u))
     end
     _grad = diffalg(test_f, p)

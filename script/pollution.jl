@@ -25,7 +25,7 @@ end k1  k2  k3  k4  k5  k6  k7  k8  k9  k10  k11  k12  k13  k14  k15  k16  k17  
 function make_pollution()
   comp = let pollution = pollution, J = zeros(20, 20), JP = zeros(20, 25), tmpdu = zeros(20,25), tmpu = zeros(20,25)
     function comp(du, u, p, t)
-      tmpu  .= @view( u[:, 2:26])
+      tmpu  .= @view(u[:, 2:26])
       pollution(@view(du[:, 1]), u, p, t)
       pollution.jac(J,u,p,t)
       pollution.paramjac(JP,u,p,t)

@@ -112,27 +112,3 @@ function bench(ns=2:5, pre=true)
     @time diffeq_sen_l2(bfun, b_u0, tspan, bp, bt, alg, abstol=1e-5,reltol=1e-7, save_everystep=false, sensalg=SensitivityAlg(autojacvec=false));
   end
 end
-#=
-Algorithm: Rodas5
-ts = 0.0:0.5:10.0
-2x2x2:
-ForwardDiff:                          0.002463 seconds (2.34 k allocations: 198.031 KiB)
-ReverseDiff:                          0.143720 seconds (660.05 k allocations: 23.851 MiB, 32.02% gc time)
-Continuous SA with vec'Jac seeding:   0.190598 seconds (487.94 k allocations: 23.980 MiB, 7.98% gc time)
-Continuous SA:                        0.037339 seconds (69.21 k allocations: 1.560 MiB, 55.05% gc time)
-3x3x2:
-ForwardDiff:                          0.030961 seconds (6.81 k allocations: 816.359 KiB)
-ReverseDiff:                          2.082692 seconds (6.43 M allocations: 230.579 MiB, 52.18% gc time)
-Continuous SA with vec'Jac seeding:   0.388259 seconds (166.64 k allocations: 3.680 MiB)
-Continuous SA:                        0.186917 seconds (158.41 k allocations: 3.508 MiB)
-4x4x2:
-ForwardDiff:                          0.108875 seconds (11.91 k allocations: 2.723 MiB)
-ReverseDiff:                          4.454240 seconds (26.82 M allocations: 958.981 MiB, 15.27% gc time)
-Continuous SA with vec'Jac seeding:   3.135371 seconds (435.71 k allocations: 10.082 MiB)
-Continuous SA:                        2.281915 seconds (412.34 k allocations: 9.577 MiB)
-5x5x2:
-ForwardDiff:                          0.974421 seconds (17.59 k allocations: 7.217 MiB, 34.48% gc time)
-ReverseDiff:                         15.934102 seconds (61.90 M allocations: 2.146 GiB, 48.37% gc time)
-Continuous SA with vec'Jac seeding:   4.758021 seconds (358.61 k allocations: 8.022 MiB)
-Continuous SA:                        3.983128 seconds (338.24 k allocations: 7.589 MiB)
-=#

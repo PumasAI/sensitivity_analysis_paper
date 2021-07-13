@@ -1,4 +1,18 @@
 using DiffEqSensitivity, OrdinaryDiffEq, ForwardDiff, ReverseDiff, DiffEqDiffTools, Calculus, DiffResults, DiffEqBase
+using LinearAlgebra
+using DiffEqSensitivity: alg_autodiff
+Base.vec(v::Adjoint{<:Real, <:AbstractVector}) = vec(v')
+tols = (abstol=1e-5, reltol=1e-7)
+
+_adjoint_methods = ntuple(3) do ii
+  Alg = (InterpolatingAdjoint, QuadratureAdjoint, BacksolveAdjoint)[ii]
+  (
+    user = Alg(autodiff=false,autojacvec=false), # user Jacobian
+    adjc = Alg(autodiff=true,autojacvec=false), # AD Jacobian
+    advj = Alg(autodiff=true,autojacvec=EnzymeVJP()), # AD vJ
+  )
+end |> NamedTuple{(:interp, :quad, :backsol)}
+@isdefined(ADJOINT_METHODS) || (const ADJOINT_METHODS = mapreduce(collect, vcat, _adjoint_methods))
 
 function diffeq_sen(prob::DiffEqBase.DEProblem, args...; kwargs...)
   diffeq_sen(prob.f, prob.u0, prob.tspan, prob.p, args...; kwargs...)
@@ -25,16 +39,16 @@ function diffeq_sen_l2(df, u0, tspan, p, t, alg=Tsit5();
                        abstol=1e-5, reltol=1e-7, iabstol=abstol, ireltol=reltol,
                        sensalg=InterpolatingAdjoint(), kwargs...)
   prob = ODEProblem(df,u0,tspan,p)
-  sol = solve(prob, alg, abstol=abstol, reltol=reltol; kwargs...)
+  sol = solve(prob, alg, sensealg=DiffEqBase.SensitivityADPassThrough(), abstol=abstol, reltol=reltol; kwargs...)
   dg(out,u,p,t,i) = (out.=1.0.-u)
   adjoint_sensitivities(sol,alg,dg,t,abstol=abstol,
-                        reltol=reltol,iabstol=abstol,ireltol=reltol,sensealg=sensalg)
+                        reltol=reltol,iabstol=abstol,ireltol=reltol,sensealg=sensalg)[2]
 end
 
 function auto_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); diffalg=ReverseDiff.gradient, kwargs...)
   test_f(p) = begin
     prob = ODEProblem(f,eltype(p).(u0),tspan,p)
-    sol = solve(prob,alg; kwargs...)(t)
+    sol = solve(prob,alg; sensealg=DiffEqBase.SensitivityADPassThrough(), kwargs...)(t)
     sum(sol.u) do x
       sum(z->(1-z)^2/2, x)
     end

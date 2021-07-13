@@ -1,12 +1,9 @@
 using Plots
-pgfplots()
+gr()
 
 include("sensitivity.jl")
 include("lotka-volterra.jl")
 include("brusselator.jl")
-DiffEqBase.has_tgrad(::ODEForwardSensitivityFunction) = false
-DiffEqBase.has_invW(::ODEForwardSensitivityFunction) = false
-DiffEqBase.has_jac(::ODEForwardSensitivityFunction) = false
 
 u0 = [1.,1.]; tspan = (0., 10.); p = [1.5,1.0,3.0]
 t = collect(range(0, stop=10, length=200));
@@ -35,4 +32,4 @@ p3_b = plot(t,sensitivities_bruss_diff[1]'[:,[1,n^2+1]],label=sens_labels,xlabel
 fig1 = plot(p1,p2,p3,layout=(1,3));
 fig2 = plot(p1_b,p2_b,p3_b,layout=(1,3));
 fig = plot(fig1,fig2,layout=(2,1),size=(1200,800));
-savefig(fig,"solution_sensitivty_plot.pdf")
+savefig(fig,"../solution_sensitivty_plot.pdf")

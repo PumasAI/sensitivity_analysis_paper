@@ -18,16 +18,17 @@ plot!(plt1, n_to_param.(csan), csadata[3+3], lab=raw"Quadrature CASA AD-$v^{T}J$
 plot!(plt1, n_to_param.(numdiffn), numdiff, lab="Numerical Differentiation", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
 xaxis!(plt1, "Number of Parameters", :log10);
 yaxis!(plt1, "Runtime (s)", :log10);
-plot!(plt1, legend=:outertopleft, size=(600, 1000));
+plot!(plt1, legend=:outertopleft, size=(1200, 600));
 savefig(plt1, "../figure2.pdf")
 
 eval.(Meta.parse.(split(String(read(joinpath(@__DIR__, "..", "bruss_vjp_data.txt"))), '\n')))
-plt2 = plot(title="Brusselator scaling with various VJPs");
-csadata = [[csavjp[j][i] for j in eachindex(csavjp)] for i in eachindex(csavjp[1])]
-plot!(plt2, n_to_param.(csan), csadata[1+3], lab=raw"EnzymeVJP", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
-plot!(plt2, n_to_param.(csan), csadata[2+3], lab=raw"ReverseDiffVJP", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
-plot!(plt2, n_to_param.(csan), csadata[3+3], lab=raw"Compiled ReverseDiffVJP", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
+plt2 = plot(title="Brusselator quadrature adjoint scaling");
+csacompare = [[csavjp[j][i] for j in eachindex(csavjp)] for i in eachindex(csavjp[1])]
+plot!(plt2, n_to_param.(csan), csadata[2+3], lab="AD-Jacobian", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
+plot!(plt2, n_to_param.(csan), csacompare[1+3], lab=raw"EnzymeVJP", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
+plot!(plt2, n_to_param.(csan), csacompare[2+3], lab=raw"ReverseDiffVJP", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
+plot!(plt2, n_to_param.(csan), csacompare[3+3], lab=raw"Compiled ReverseDiffVJP", lw=lw, marksize=ms, linestyle=:auto, marker=:auto);
 xaxis!(plt2, "Number of Parameters", :log10);
 yaxis!(plt2, "Runtime (s)", :log10);
-plot!(plt2, legend=:outertopleft, size=(600, 1000));
+plot!(plt2, legend=:outertopleft, size=(1200, 600));
 savefig(plt2, "../figure3.pdf")

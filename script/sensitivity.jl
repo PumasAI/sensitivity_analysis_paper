@@ -67,9 +67,9 @@ function numerical_sen_l2(f, u0, tspan, p, t, alg=Tsit5(); kwargs...)
   DiffEqDiffTools.finite_difference_gradient(test_f, p, Val{:central})
 end
 
-function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), sensalg=InterpolatingAdjoint(), kwargs...)
-  prob = ODELocalSensitivityProblem(f,u0,tspan,p)
-  sol = solve(prob,alg;sensealg=sensalg,kwargs...)(t)
+function diffeq_sen_full(f, u0, tspan, p, t; alg=Tsit5(), sensalg=ForwardSensitivity(), kwargs...)
+  prob = ODELocalSensitivityProblem(f,u0,tspan,p,sensalg)
+  sol = solve(prob,alg;kwargs...)(t)
   nvar = length(u0)
   sol[1:nvar,:], [sol[i*nvar+1:i*nvar+nvar,:] for i in 1:length(p)]
 end
